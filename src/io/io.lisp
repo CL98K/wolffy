@@ -15,7 +15,8 @@
   (separator nil))
 
 (defclass binary-stream (sb-gray:fundamental-binary-stream)
-  ((binary :initarg :binary :type binary)))
+  ((binary :initarg :binary :type binary)
+   (pool :initarg :pool :type hash-table)))
 
 (defun make-binary-stream (&key (initial-data (make-array 0)) (initial-size 128) (restream-size 1.5) (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
@@ -24,10 +25,14 @@
   (let* ((instance nil)
          (size (array-total-size initial-data))
          (initial-size (if (> size 0) size initial-size))
-         (stream (fast-io:make-octet-vector initial-size)))
-    
+         (stream (fast-io:make-octet-vector initial-size))
+         (pool (make-hash-table)))
+
+    (loop for i in '(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 64 128 256 512)
+          do (setf (gethash i pool) (fast-io:make-octet-vector i)))
     (setf instance (make-instance 'binary-stream
-                                  :binary (make-binary :stream stream :size initial-size :restream-size restream-size)))
+                                  :binary (make-binary :stream stream :size initial-size :restream-size restream-size)
+                                  :pool pool))
     (if (> size 0) (binary-stream-writes instance initial-data :upgrade-p upgrade-p))
     instance))
 
@@ -148,13 +153,14 @@
            (type binary-stream instance) (type fixnum n))
 
   (let* ((binary (slot-value instance 'binary))
+         (pool (slot-value instance 'pool))
          (stream (binary-stream binary))
          (w-pointer (binary-w-pointer binary))
          (r-pointer (binary-r-pointer binary))
          (diff (- w-pointer r-pointer))
          (n (if (> diff n) n diff))
-         (buffer (fast-io:make-octet-vector n)))
-    (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer r-pointer diff n))
+         (buffer (if (gethash n pool) (gethash n pool) (fast-io:make-octet-vector n))))
+    (declare (type binary binary) (type hash-table pool) (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer r-pointer diff n))
     
     (prog1 buffer
       (loop for i fixnum from r-pointer
@@ -167,6 +173,7 @@
            (type binary-stream instance))
   
   (let* ((binary (slot-value instance 'binary))
+         (pool (slot-value instance 'pool))
          (stream (binary-stream binary))
          (w-pointer (binary-w-pointer binary))
          (r-pointer (binary-r-pointer binary))
@@ -175,8 +182,8 @@
          (sep-size (length sep))
          (index (if sep (nth (- sep-size s-pointer 1) sep) w-pointer))
          (n (if (/= index w-pointer) (if (> index r-pointer) (1+ (- index r-pointer)) 0) (- w-pointer r-pointer)))
-         (buffer (fast-io:make-octet-vector n)))
-    (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type list sep) (type (mod 67108864) w-pointer r-pointer sep-size index n))
+         (buffer (if (gethash n pool) (gethash n pool) (fast-io:make-octet-vector n))))
+    (declare (type binary binary) (type hash-table pool) (type fast-io:octet-vector stream buffer) (type list sep) (type (mod 67108864) w-pointer r-pointer sep-size index n))
 
     (when (and (= n 0) (> w-pointer r-pointer))
       (setf n (- w-pointer r-pointer))
