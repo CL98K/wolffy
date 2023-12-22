@@ -8,7 +8,7 @@ wo-io provides some operations on binary streams.
 **highest-protocol**  
 This is the highest protocol number we know how to read.
 
-**default-protocal**  
+**default-protocol**  
 The protocol we write by default. May be less than HIGHEST_PROTOCOL. Only bump this if the oldest still supported version of Python already includes it.
 
 **py-load** *(file &key (fix-imports t) (element-type "ascii")*  

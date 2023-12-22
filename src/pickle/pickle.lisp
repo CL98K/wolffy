@@ -4,11 +4,16 @@
 
 (defparameter *format-version* "4.0" "File format version we write")
 (defparameter *compatible-formats '(1.0 1.1 1.2 1.3 2.0 3.0 4.0 5.0) "")
+
+(declaim (type fixnum *highest-protocol* *default-protocol*))
 (defparameter *highest-protocol* 5 "This is the highest protocol number we know how to read.")
 (defparameter *default-protocol* 4 "The protocol we write by default.")
 
 (declaim (inline +sys-maxsize+))
 (defconstant +sys-maxsize+ 9223372036854775807)
+
+(declaim (inline +newline+))
+(defconstant +newline+ (char-code #\newline))
 
 (declaim (inline encode-long))
 (defun encode-long (x)
@@ -32,54 +37,66 @@
   ((stream :initarg :stream)
    (current-frame :initarg :current-frame)
    (frame-size-min :initform 4 :reader frame-size-min :allocation :class)
-   (frame-size-target :initform (* 64 1024) :reader frame-size-target :allocation :class)))
-
-(defmethod start-framing ((instance framer))
-  (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream)))
-
-(defmethod end-framing ((instance framer))
-  (let ((current-frame (slot-value instance 'current-frame)))
-    (if (and current-frame (wo-io:binary-stream-file-position current-frame))
-        (progn
-          (commit-frame instance :force t)
-          (setf (slot-value instance 'current-frame) nil)))))
-
-(defmethod commit-frame ((instance framer) &key force)
-  (with-slots (stream current-frame frame-size-min frame-size-target) instance
-    (when current-frame
-      (when (or (>= (wo-io:binary-stream-file-position current-frame) frame-size-target) force)
-        (multiple-value-bind (data size) (wo-io:binary-stream-memery-view current-frame)
-          (if (>= size frame-size-min)
-              (progn
-                (wo-io:binary-stream-write stream +frame+)
-                (wo-io:binary-stream-writes stream (pack:pack "<Q" size))))
-          (wo-io:binary-stream-writes stream data)
-          (setf current-frame (wo-io:make-binary-stream)))))))
-
-(defmethod write-frame ((instance framer) &rest datas)
-  (let* ((current-frame (slot-value instance 'current-frame))
-         (stream (if current-frame current-frame (slot-value instance 'stream))))
-
-    (loop for data in datas
-          do
-          (if (typep data '(mod 255))
-              (wo-io:binary-stream-writes stream data)
-              (wo-io:binary-stream-writes stream data)))))
-
-(defmethod write-large-bytes ((instance framer) header payload)
-  (let ((current-frame (slot-value instance 'current-frame)))
-    (if current-frame (commit-frame instance :force t))
-    (wo-io:binary-stream-writes current-frame header)
-    (wo-io:binary-stream-writes current-frame payload)))
-
+   (frame-size-target :type fixnum :initform (* 64 1024) :reader frame-size-target :allocation :class)))
 
 (defclass unframer ()
   ((current-frame :initarg :current-frame :accessor current-frame-of)))
 
+
+(defmethod framer-start ((instance framer))
+  (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream)))
+
+(defmethod framer-end ((instance framer))
+  (let ((current-frame (slot-value instance 'current-frame)))
+    (if (and current-frame (wo-io:binary-stream-file-position current-frame))
+        (progn
+          (framer-commit instance :force t)
+          (setf (slot-value instance 'current-frame) nil)))))
+
+(defmethod framer-commit ((instance framer) &key force)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type boolean force))
+  
+  (with-slots (stream current-frame frame-size-min frame-size-target) instance
+    (declare (type fixnum frame-size-min frame-size-target))
+    (when  (and current-frame (or (>= (the fixnum (wo-io:binary-stream-file-position current-frame)) frame-size-target) force))
+      (multiple-value-bind (data size) (wo-io:binary-stream-memery-view current-frame)
+        (declare (type simple-array data) (type fixnum size))
+         (when (>= size frame-size-min)
+          (wo-io:binary-stream-write stream +frame+)
+          (wo-io:binary-stream-writes stream (pack:pack "<Q" size)))
+        (wo-io:binary-stream-writes stream data)
+        (setf current-frame (wo-io:make-binary-stream))))))
+
+(defmethod framer-write ((instance framer) &rest datas)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type sequence datas))
+  
+  (let* ((current-frame (slot-value instance 'current-frame))
+         (stream (if current-frame current-frame (slot-value instance 'stream))))
+    (loop for data in datas
+          do
+          (if (typep data '(mod 255))
+              (wo-io:binary-stream-write stream data)
+              (wo-io:binary-stream-writes stream data)))))
+
+(defmethod write-large-bytes ((instance framer) headers payload) 
+  (let ((current-frame (slot-value instance 'current-frame))
+        (stream (slot-value instance 'stream)))
+    (if current-frame (framer-commit instance :force t))
+
+    (loop for data in headers
+          do
+          (if (typep data '(mod 255))
+              (wo-io:binary-stream-write stream data)
+              (wo-io:binary-stream-writes stream data)))
+    (wo-io:binary-stream-writes stream payload)))
+
+
 (defmethod framer-read ((instance unframer) stream n)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type stream wo-io:binary-stream) (type fixnum n))
-
+  
   (let ((current-frame (slot-value instance 'current-frame)))
     (if current-frame
         (progn
@@ -137,3 +154,4 @@
 
     (wo-io:binary-stream-read-sequence stream buffer)
     (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream :initial-data buffer))))
+

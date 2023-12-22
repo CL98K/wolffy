@@ -3,7 +3,7 @@
   (:use #:cl #:pack #:alexandria #:kit #:wo-io)
   (:export
    #:*highest-protocol*
-   #:*default-protocal*
+   #:*default-protocol*
    #:py-load
    #:py-loads
    #:lisp-dump

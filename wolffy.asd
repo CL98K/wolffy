@@ -3,7 +3,7 @@
   :version "0.0.1"
   :author "GZZ <x>"
   :licence ""
-  :depends-on (#:pack #:select #:alexandria :fast-io #:kit)
+  :depends-on (#:pack #:select #:alexandria #:fast-io #:kit)
   :components ((:module "src"
                 :serial t
                 :components ((:module "io"
@@ -17,8 +17,7 @@
                                            (:file "conditions")
                                            (:file "opcodes")
                                            (:file "loads")
-                                           ;; (:file "dumps")
-                                           ))
+                                           (:file "dumps")))
                              (:file "package")))))
 
 (defsystem :wolffy/test
