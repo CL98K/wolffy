@@ -1,7 +1,7 @@
 (defsystem :wolffy
   :description "wolffy"
   :version "0.0.1"
-  :author "GZZ <x>"
+  :author "CL98K <917599580@QQ.COM>"
   :licence ""
   :depends-on (#:pack #:select #:alexandria #:fast-io #:kit)
   :components ((:module "src"
