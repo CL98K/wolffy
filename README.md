@@ -76,7 +76,7 @@ CL-USER> (setf s (wo-io:make-binary-stream :initial-data #(128 4 149 71 0 0 0 0 
 **binary-stream-file-position** *(instance &optional position-spec)*
 
 
-**binary-stream-upgrade-space** *(instance &optional (size 0))*
+**binary-stream-upgrade-space** *(instance &optional (size 0))*  
 This method is internal and cannot be called externally.  
 
 
@@ -101,5 +101,5 @@ This method is internal and cannot be called externally.
 **binary-stream-read-sequence** *(instance buffer &optional start end)*
 
 
-**file-stream-to-binary-stream** *(stream)*
+**file-stream-to-binary-stream** *(stream)*  
 This method provides a way for files stream to binary streams.  
