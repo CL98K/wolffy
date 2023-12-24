@@ -5,10 +5,10 @@ Wolffy (abbreviation: wo or wol) mainly encapsulates some convenient packages fo
 ## wo-pickle
 wo-pickle provides serialization and deserialization with Python and Lisp data structures.
 
-**highest-protocol**  
+***highest-protocol***  
 This is the highest protocol number we know how to read.
 
-**default-protocol**  
+***default-protocol***  
 The protocol we write by default. May be less than HIGHEST_PROTOCOL. Only bump this if the oldest still supported version of Python already includes it.  
 Currently, most data types of Python are supported (excluding Python class objects, etc.)
 
