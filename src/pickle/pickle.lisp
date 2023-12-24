@@ -15,20 +15,19 @@
 (declaim (inline +newline+))
 (defconstant +newline+ (char-code #\newline))
 
-(declaim (inline encode-long))
 (defun encode-long (x)
   (if (= x 0) (return-from encode-long (char-code #\ )))
+  
   (let* ((nbytes (1+ (ash (integer-length x) -3)))
          (result (integer-to-bytes x nbytes :order :little :signed t))
          (length (array-total-size result)))
-    
+
     (if (and (< x 0) (> nbytes 1))
         (if (and (= (aref result (- length 1)) 255) (/= (aref result (- length 2)) 0))
             (return-from encode-long (make-array (1- length) :displaced-to result :displaced-index-offset 0))))
-
+    
     (return-from encode-long result)))
 
-(declaim (inline decode-long))
 (defun decode-long (array &key (order :little) (signed t))
   (bytes-to-integer array :order order :signed signed))
 
@@ -41,7 +40,6 @@
 
 (defclass unframer ()
   ((current-frame :initarg :current-frame :accessor current-frame-of)))
-
 
 (defmethod framer-start ((instance framer))
   (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream)))

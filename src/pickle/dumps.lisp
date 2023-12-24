@@ -2,19 +2,20 @@
 
 (declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
-(defun lisp-dump (obj file &key (protocol 0) (fix-imports t))
+(defun dump (obj file &key (protocol 0) (fix-imports t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type t obj) (type string file) (type fixnum protocol) (type boolean fix-imports))
   
   (with-open-file (stream file :element-type '(unsigned-byte 8))
-    (lisp-dumps obj :stream stream :protocol protocol :fix-imports fix-imports)))
+    (dumps obj :stream stream :protocol protocol :fix-imports fix-imports)))
 
-(defun lisp-dumps (obj &key (stream (wo-io:make-binary-stream)) (protocol 0) (fix-imports t))
+(defun dumps (obj &key (stream (wo-io:make-binary-stream)) (protocol 0) (fix-imports t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type t obj) (type wo-io:binary-stream stream) (type fixnum protocol) (type boolean fix-imports))
 
   (let ((env (make-hash-table))
-        (protocol (if (= protocol 0) *default-protocol* (if (< protocol 0) *highest-protocol* protocol))))
+        (protocol (if (= protocol 0) *default-protocol* (if (< protocol 0) *highest-protocol* protocol)))
+        (framer (make-instance 'framer :stream stream :current-frame nil)))
     (declare (type hash-table env) (type fixnum protocol))
 
     (if (> protocol *highest-protocol*) (error 'value-error :message (format nil "pickle protocol must be <= ~A" *highest-protocol*)))
@@ -24,17 +25,17 @@
     (setf (gethash :fast env) 0)
     (setf (gethash :fix-imports env) (if (and fix-imports (< protocol 3)) t nil))
     (setf (gethash :memo env) (make-hash-table :test 'eq))
-    (setf (gethash :framer env) (make-instance 'framer :stream stream :current-frame nil))
+    (setf (gethash :framer env) framer)
     (setf (gethash :batchsize env) 1000)
     
     (if (>= protocol 2)
-        (framer-write (gethash :framer env) +proto+ (pack:pack "<B" protocol)))
+        (framer-write framer +proto+ (pack:pack "<B" protocol)))
     (if (>= protocol 4)
-        (framer-start (gethash :framer env)))
+        (framer-start framer))
 
     (_save env obj)
-    (framer-write (gethash :framer env) +stop+)
-    (framer-end (gethash :framer env))
+    (framer-write framer +stop+)
+    (framer-end framer)
     (wo-io:binary-stream-memery-view stream)))
 
 (declaim (ftype (function (hash-table t) t) _memoize) (inline _memoize))
@@ -81,7 +82,7 @@
   (let* ((framer (gethash :framer env))
          (stream (slot-value framer 'stream))
          (pid (_persistent_id obj)))
-    
+
     (framer-commit framer)
     (when (and pid save-persistent-id)
       (_save_pers pid))
@@ -90,17 +91,22 @@
       (when x
         (framer-write framer (_get env (aref (the simple-vector x) 0)))
         (return-from _save)))
-    
+
     (perform-op (type-to-code obj) env stream obj)))
 
 (defun _persistent_id (obj) nil)
 
 (defun _save_pers (pid) nil)
 
-(defun _batch_appends (env items)  
+(declaim (ftype (function (hash-table list) t) _batch_appends) (inline _batch_appends))
+(defun _batch_appends (env items)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type hash-table env) (type list items))
+  
   (let ((framer (gethash :framer env))
         (bin (gethash :bin env))
         (batchsize (gethash :batchsize env)))
+    
     (if (not bin)
         (progn
           (dolist (x items)
@@ -108,37 +114,70 @@
             (framer-write framer +append+))
           (return-from _batch_appends)))
 
-    (let* ((len (length items))
-           (indexs (loop for i from 0 below len by batchsize collect i)))
+    (let* ((len (list-length items))
+           (indexs (loop for i fixnum from 0 below len by batchsize collect i)))
 
-      (if (/= (car (last indexs)) len) (setf indexs (append indexs (list len))))
+      (if (/= (the fixnum (first (last indexs))) len) (setf indexs (append indexs (list len))))
       
-      (loop for first in indexs
-            for i from 0 below (1- (length indexs))
-            for second = (elt indexs (1+ i))
-            for diff = (- second first)
+      (loop for first fixnum in indexs
+            for i fixnum from 0 below (1- (list-length indexs))
+            for second fixnum = (elt indexs (1+ i))
+            for diff fixnum = (- second first)
             do
             (cond ((> diff 1)
                    (framer-write framer +mark+)
-                   (loop for i from first below second do (_save env (elt items i)))
+                   (loop for i fixnum from first below second do (_save env (nth i items)))
                    (framer-write framer +appends+))
                   ((= diff 1)
-                   (_save env (elt items i))
+                   (_save env (nth i items))
                    (framer-write framer +append+)))
 
             (if (< diff batchsize) (return-from _batch_appends))))))
 
+(declaim (ftype (function (hash-table hash-table) t) _batch_setitems) (inline _batch_setitems))
+(defun _batch_setitems (env items)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type hash-table env items))
 
-;; (defun _batch_setitems (items)
-;;   (if (not *bin*)
-;;       (progn
-;;         (loop for (k v) in items
-;;               do
-;;               (_save k)
-;;               (_save v)
-;;               (framer-write *framer* +setitem+))
-;;         (return-from _batch_appends)))
-;;   )
+  (let ((framer (gethash :framer env))
+        (bin (gethash :bin env))
+        (batchsize (gethash :batchsize env))
+        (nitems (loop for key being the hash-keys of items using (hash-value value) collect (list key value))))
+    
+    (if (not bin)
+        (progn
+          (loop for (k v) in nitems
+                do
+                (_save env k)
+                (_save env v)
+                (framer-write framer +setitem+))
+          (return-from _batch_setitems)))
+
+    (let* ((len (list-length nitems))
+           (indexs (loop for i fixnum from 0 below len by batchsize collect i)))
+      
+      (if (/= (the fixnum (first (last indexs))) len) (setf indexs (append indexs (list len))))
+      
+      (loop for first fixnum in indexs
+            for i fixnum from 0 below (1- (list-length indexs))
+            for second fixnum = (elt indexs (1+ i))
+            for diff fixnum = (- second first)
+            do
+            (cond ((> diff 1)
+                   (framer-write framer +mark+)
+                   (loop for i fixnum from first below second
+                         for (k v) = (nth i nitems)
+                         do
+                         (_save env k)
+                         (_save env v))
+                   (framer-write framer +setitems+))
+                  ((= diff 1)
+                   (destructuring-bind (k v) (nth i nitems)
+                     (_save env k)
+                     (_save env v))
+                   (framer-write framer +setitem+)))
+
+            (if (< diff batchsize) (return-from _batch_setitems))))))
 
 (defop +lsp-nil+ (env)
   (framer-write (gethash :framer env) +none+))
@@ -157,7 +196,7 @@
         (proto (gethash :proto env))
         (bin (gethash :bin env)))
     (declare (type fixnum obj proto bin))
-    
+
     (when bin
       (if (>= obj 0)
           (cond ((<= obj #xff) (framer-write framer +binint1+ (pack:pack "<B" obj)) (return))
@@ -219,6 +258,12 @@
   (let ((framer (gethash :framer env))
         (bin (gethash :bin env)))
     (if bin (framer-write framer +empty-list+) (framer-write framer +mark+ +list+))
-    (_memoize env obj)
     (_batch_appends env obj)))
+
+(defop +lsp-hash-table+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (bin (gethash :bin env)))
+    (if bin (framer-write framer +empty-dict+) (framer-write framer +mark+ +dict+))
+    (_memoize env obj)
+    (_batch_setitems env obj)))
 

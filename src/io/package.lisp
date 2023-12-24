@@ -1,7 +1,9 @@
 (defpackage #:io
   (:documentation "wolffy io")
   (:nicknames :wo-io :wol-io)
-  (:use #:cl #:sb-gray #:fast-io)
+  (:use #:cl)
+  (:import-from #:sb-gray)
+  (:import-from #:fast-io)
   (:export
    #:binary-stream
    #:make-binary-stream

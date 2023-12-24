@@ -2,13 +2,13 @@
 
 (declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
-(defun py-load (file &key (fix-imports t) (element-type "ascii"))
+(defun load (file &key (fix-imports t) (element-type "ascii"))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
   
   (with-open-file (stream file :element-type '(unsigned-byte 8))
-    (py-loads (wo-io:file-stream-to-binary-stream stream) :fix-imports fix-imports :element-type element-type)))
+    (loads (wo-io:file-stream-to-binary-stream stream) :fix-imports fix-imports :element-type element-type)))
 
-(defun py-loads (stream &key (fix-imports t) (element-type "ascii"))
+(defun loads (stream &key (fix-imports t) (element-type "ascii"))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (ignore fix-imports element-type))
 
   (let ((env (make-hash-table)))
@@ -21,9 +21,10 @@
     (handler-case
       (loop for op-code = (framer-read (gethash :framer env) stream 1)
             while op-code
-            do (perform-op (aref (the (simple-array (unsigned-byte 8) *) op-code) 0) env stream nil))
+            do
+            (perform-op (aref (the (simple-array (unsigned-byte 8) *) op-code) 0) env stream nil))
       (stop (condition)
-        (return-from py-loads (stop-value condition))))
+        (return-from loads (stop-value condition))))
     
     (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
 

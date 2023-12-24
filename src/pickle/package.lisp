@@ -1,10 +1,17 @@
 (defpackage #:wo-pickle
   (:documentation "wolffy pickle")
-  (:use #:cl #:pack #:alexandria #:kit #:wo-io)
+  (:use #:cl)
+  (:import-from #:pack)
+  (:import-from #:alexandria)
+  (:import-from #:kit
+                #:integer-to-bytes
+                #:bytes-to-integer)
+  (:import-from #:wo-io)
+  (:shadow #:load)
   (:export
    #:*highest-protocol*
    #:*default-protocol*
-   #:py-load
-   #:py-loads
-   #:lisp-dump
-   #:lisp-dumps))
+   #:load
+   #:loads
+   #:dump
+   #:dumps))
