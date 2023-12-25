@@ -11,7 +11,7 @@
 (defun loads (stream &key (fix-imports t) (element-type "ascii"))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (ignore fix-imports element-type))
 
-  (let ((env (make-hash-table)))
+  (let ((env (make-hash-table :test 'eq)))
     (setf (gethash :proto env) 0)
     (setf (gethash :stack env) '())
     (setf (gethash :meta-stack env) '())

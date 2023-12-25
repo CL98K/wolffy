@@ -13,7 +13,7 @@
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type t obj) (type wo-io:binary-stream stream) (type fixnum protocol) (type boolean fix-imports))
 
-  (let ((env (make-hash-table))
+  (let ((env (make-hash-table :test 'eq))
         (protocol (if (= protocol 0) *default-protocol* (if (< protocol 0) *highest-protocol* protocol)))
         (framer (make-instance 'framer :stream stream :current-frame nil)))
     (declare (type hash-table env) (type fixnum protocol))
