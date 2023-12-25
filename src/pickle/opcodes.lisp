@@ -1,6 +1,8 @@
 (in-package #:wo-pickle)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (setf *read-default-float-format* 'double-float)
+  
   (defun type-to-code (obj)
     (typecase obj
       (nil        1000)
