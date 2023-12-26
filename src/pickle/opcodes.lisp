@@ -1,4 +1,4 @@
-(in-package #:wo-pickle)
+(in-package #:pickle)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf *read-default-float-format* 'double-float)

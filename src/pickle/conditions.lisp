@@ -1,4 +1,4 @@
-(in-package #:wo-pickle)
+(in-package #:pickle)
 
 (define-condition pickle-error (error)
   ((message :initarg :message

@@ -1,4 +1,4 @@
-(in-package #:wo-pickle)
+(in-package #:pickle)
 
 (declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
