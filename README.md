@@ -7,7 +7,7 @@ wo-pickle provides serialization and deserialization with Python and Lisp data s
 
 Performance metrics compared to python Pickler.  
 | Test 100 times | cPickle | pickle | wo-pickle(optimizing ....) |
-|----------------+---------+--------+-----------|
+|----------------|---------|--------|-----------|
 |    runtime     |  0.35   |    -   |   2.89    |
 
 
