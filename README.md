@@ -2,8 +2,14 @@
 Wolffy (abbreviation: wo or wol) mainly encapsulates some convenient packages for interacting with Python.  
 
 
-## wo-pickle(or wo-pkl)
-wo-pickle provides serialization and deserialization with Python and Lisp data structures.
+# wo-pickle(or wo-pkl)
+wo-pickle provides serialization and deserialization with Python and Lisp data structures.  
+
+Performance metrics compared to python Pickler.  
+| Test 100 times | cPickle | pickle | wo-pickle(optimizing ....) |
+|----------------+---------+--------+-----------|
+|    runtime     |  0.35   |    -   |   2.89    |
+
 
 ***highest-protocol***  
 This is the highest protocol number we know how to read.
@@ -51,7 +57,7 @@ CL-USER> (wo-pkl:dumps 123111111111111111111111111111111111111111111111111111111
 ```
 
 
-## wo-io
+# wo-io
 wo-io provides some stream operations, existing Binary-stream( == Python io.BytesIO).
 
 **defclass binary-stream**
