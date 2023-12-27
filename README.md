@@ -6,9 +6,12 @@ Wolffy (abbreviation: wo or wol) mainly encapsulates some convenient packages fo
 wo-pickle provides serialization and deserialization with Python and Lisp data structures.  
 
 Performance metrics compared to python Pickler.  
+Test environment:
+CentOS Linux release 7.9.2009 (Core), 4 core, 8 threads, 32 GB memory, Python 3.11
+
 | Test 100 times   | python-cPickle   | python-pickle   | wo-pickle(optimizing ....) |
 |:----------------:|:----------------:|:---------------:|:--------------------------:|
-|    load          |         0.35     |    -            |   2.89                     |
+|    load          |         0.35     |    6.79         |   2.89                     |
 |    dump          |         testing  |    -            |   testing                  |
 
 
