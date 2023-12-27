@@ -13,8 +13,8 @@
 
   (let ((env (make-hash-table :test 'eq)))
     (setf (gethash :proto env) 0)
-    (setf (gethash :stack env) '())
-    (setf (gethash :meta-stack env) '())
+    (setf (gethash :stack env) nil)
+    (setf (gethash :meta-stack env) nil)
     (setf (gethash :memo env) (make-hash-table :test 'equal))
     (setf (gethash :framer env) (make-instance 'unframer :current-frame nil))
     
@@ -207,8 +207,7 @@
 (defop +dict+ (env)
   (let ((items (pop-mark env))
         (hash-table (make-hash-table :test 'equal)))
-    (loop for i fixnum from 0 to (list-length items) by 2
-          do (setf (gethash (nth i items) hash-table) (nth (1+ i) items)))
+    (loop for (k v) on items by #'cddr do (setf (gethash k hash-table) v))
     (push hash-table (gethash :stack env))))
 
 ;; (defop +inst+ (env stream))
@@ -276,9 +275,9 @@
     (setf (gethash key (first (gethash :stack env))) val)))
 
 (defop +setitems+ (env)
-  (let ((items (pop-mark env)))
-    (loop for i fixnum from 0 to (1- (list-length items)) by 2
-          do (setf (gethash (nth i items) (first (gethash :stack env))) (nth (1+ i) items)))))
+  (let ((items (pop-mark env))
+        (hash-table (first (gethash :stack env))))
+    (loop for (k v) on items by #'cddr do (setf (gethash k hash-table) v))))
 
 (defop +additems+ (env)
   (let ((items (pop-mark env)))

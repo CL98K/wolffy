@@ -4,6 +4,7 @@
   (:use #:cl)
   (:import-from #:sb-gray)
   (:import-from #:fast-io)
+  (:import-from #:alexandria)
   (:export
    #:binary-stream
    #:make-binary-stream

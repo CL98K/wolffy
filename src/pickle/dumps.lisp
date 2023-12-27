@@ -258,6 +258,7 @@
   (let ((framer (gethash :framer env))
         (bin (gethash :bin env)))
     (if bin (framer-write framer +empty-list+) (framer-write framer +mark+ +list+))
+    (_memoize env obj)
     (_batch_appends env obj)))
 
 (defop +lsp-hash-table+ (env nil obj)

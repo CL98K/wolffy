@@ -8,7 +8,7 @@
 (defstruct binary
   (stream nil :type fast-io:octet-vector)
   (size 0 :type (mod 67108864))
-  (restream-size 1.5 :type single-float :read-only t)
+  (restream-size 1.5 :type float :read-only t)
   (w-pointer 0 :type (mod 67108864))
   (r-pointer 0 :type (mod 67108864))
   (s-pointer 0 :type (mod 67108864))
@@ -17,17 +17,17 @@
 (defclass binary-stream (sb-gray:fundamental-binary-stream)
   ((binary :initarg :binary :type binary)))
 
-(defun make-binary-stream (&key (initial-data (make-array 0)) (initial-size 128) (restream-size 1.5) (upgrade-p t))
+(defun make-binary-stream (&key (initial-data #()) (initial-size 128) (restream-size 1.5) (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type (or simple-vector fast-io:octet-vector) initial-data) (type fixnum initial-size) (type single-float restream-size) (type boolean upgrade-p))
-
+           (type (or simple-vector fast-io:octet-vector) initial-data) (type fixnum initial-size) (type float restream-size) (type boolean upgrade-p))
+  
   (let* ((instance nil)
          (size (array-total-size initial-data))
          (initial-size (if (> size 0) size initial-size))
          (stream (fast-io:make-octet-vector initial-size)))
     (setf instance (make-instance 'binary-stream
                                   :binary (make-binary :stream stream :size initial-size :restream-size restream-size)))
-    (if (> size 0) (binary-stream-writes instance initial-data :upgrade-p upgrade-p))
+    (if (> size 0) (binary-stream-writes instance (coerce initial-data 'fast-io:octet-vector) :upgrade-p upgrade-p))
     instance))
 
 (defun binary-stream-close (instance)
@@ -78,11 +78,11 @@
   (let* ((binary (slot-value instance 'binary))
          (stream (binary-stream binary))
          (stream-size (binary-size binary))
-         (restream-size (the single-float (binary-restream-size binary)))
+         (restream-size (the float (binary-restream-size binary)))
          (upgrade-size (floor (* (if (= size 0) stream-size size) restream-size)))
          (buffer (fast-io:make-octet-vector upgrade-size)))
     (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type (mod 67108864) stream-size upgrade-size) (type float restream-size))
-
+    
     (loop for i fixnum from 0 below stream-size do (setf (aref buffer i) (aref stream i)))
 
     (setf (binary-stream binary) buffer)
@@ -107,15 +107,15 @@
 
 (defun binary-stream-writes (instance integers &key (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type (or simple-vector fast-io:octet-vector) integers) (type boolean upgrade-p))
-
+           (type binary-stream instance) (type fast-io:octet-vector integers) (type boolean upgrade-p))
+  
   (let* ((binary (slot-value instance 'binary))
          (stream (binary-stream binary))
          (stream-size (binary-size binary))
          (w-pointer (binary-w-pointer binary))
          (data-size (array-total-size integers)))
     (declare (type binary binary) (type fast-io:octet-vector stream) (type (mod 67108864) data-size stream-size w-pointer))
-
+    
     (when (and upgrade-p (<= (- (- stream-size w-pointer) data-size) 0))
       (binary-stream-upgrade-space instance (+ stream-size data-size))
       (setf stream (binary-stream binary)))
@@ -190,7 +190,7 @@
 
 (defun binary-stream-read-into (instance buffer)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type (simple-array (unsigned-byte 8) *) buffer))
+           (type binary-stream instance) (type fast-io:octet-vector buffer))
   
   (let* ((binary (slot-value instance 'binary))
          (stream (binary-stream binary))
@@ -208,11 +208,9 @@
 
 (defun binary-stream-read-sequence (instance buffer &optional start end)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type (simple-array (unsigned-byte 8) *) buffer) (ignore start end))
+           (type binary-stream instance) (type fast-io:octet-vector buffer) (ignore start end))
   (binary-stream-read-into instance buffer))
 
 (defun file-stream-to-binary-stream (stream)
   (declare (type sb-sys:fd-stream stream))
-  (let ((buffer (fast-io:make-octet-vector (file-length stream))))
-    (fast-io:fast-read-sequence buffer (fast-io:make-input-buffer :stream stream))
-    (make-binary-stream :initial-data buffer)))
+  (make-binary-stream :initial-data (alexandria:read-stream-content-into-byte-vector stream)))

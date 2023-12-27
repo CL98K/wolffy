@@ -90,7 +90,6 @@
               (wo-io:binary-stream-writes stream data)))
     (wo-io:binary-stream-writes stream payload)))
 
-
 (defmethod framer-read ((instance unframer) stream n)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type stream wo-io:binary-stream) (type fixnum n))
