@@ -9,7 +9,7 @@ Performance metrics compared to python Pickler.
 | Test 100 times   | python-cPickle   | python-pickle   | wo-pickle(optimizing ....) |
 |:----------------:|:----------------:|:---------------:|:--------------------------:|
 |    load          |         0.35     |    -            |   2.89                     |
-|    dump          |         working  |    -            |   working                  |
+|    dump          |         testing  |    -            |   testing                  |
 
 
 ***highest-protocol***  
