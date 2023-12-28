@@ -7,7 +7,7 @@ wo-pickle provides serialization and deserialization with Python and Lisp data s
 
 Performance metrics compared to python Pickler.  
 Test environment:
-CentOS Linux release 7.9.2009 (Core), 4 core, 8 threads, 32 GB memory, Python 3.11
+CentOS Linux release 7.9.2009 (Core), 4 core, 8 threads, 32 GB memory, Python 3.11, SBCL 2.1.6 
 
 | Test 100 times   | python-cPickle   | python-pickle   | wo-pickle(optimizing ....) |
 |:----------------:|:----------------:|:---------------:|:--------------------------:|
