@@ -2,7 +2,23 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf *read-default-float-format* 'double-float)
-  
+
+  (setf *cond-exp* '(cond (t (error 'unpickling-error :message (format nil "Not implemented(~A)" op-code)))))
+  (setf *load-op* '(defun load-op (stream)
+                    (let ((proto 0)
+                          (stack nil)
+                          (meta-stack nil)
+                          (memo (make-hash-table :test 'equal))
+                          (framer (make-instance 'unframer :current-frame nil)))
+                     
+                      (handler-case
+                          (loop for op-code = (aref (the (simple-array (unsigned-byte 8) *) (framer-read framer stream 1)) 0)
+                                while op-code
+                                do "fill-cond")
+                        (stop (condition)
+                          (return-from load-op (stop-value condition))))
+                      (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code"))))
+    
   (defun type-to-code (obj)
     (typecase obj
       (nil        1000)
@@ -28,6 +44,16 @@
       (error 'unpickling-error :message (format nil "Not implemented(~A)" op-code))))
 
 (defmacro defop (name (&optional env stream obj) &body body)
+  ;; inline
+  (rplacd *cond-exp* (append `(((eq op-code ,name) ,@(sublis '(((gethash :proto env) . proto)
+                                                               ((gethash :stack env) . stack)
+                                                               ((gethash :meta-stack env) . meta-stack)
+                                                               ((gethash :memo env) . memo)
+                                                               ((gethash :framer env) . framer)) body :test #'equal)))
+                             (cdr *cond-exp*)))
+  (eval (sublis (acons "fill-cond" *cond-exp* '()) *load-op*))
+  
+  ;; noninline
   (let ((e (or env (gensym)))
         (s (or stream (gensym)))
         (o (or obj (gensym))))

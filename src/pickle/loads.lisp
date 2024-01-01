@@ -2,15 +2,17 @@
 
 (declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
-(defun load (file &key (fix-imports t) (element-type "ascii"))
+(defun load (file &key (fix-imports t) (element-type "ascii") (fast nil))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
   
   (with-open-file (stream file :element-type '(unsigned-byte 8))
-    (loads (wo-io:file-stream-to-binary-stream stream) :fix-imports fix-imports :element-type element-type)))
+    (loads (wo-io:file-stream-to-binary-stream stream) :fix-imports fix-imports :element-type element-type :fast fast)))
 
-(defun loads (stream &key (fix-imports t) (element-type "ascii"))
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (ignore fix-imports element-type))
-
+(defun loads (stream &key (fix-imports t) (element-type "ascii") (fast nil))
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (type boolean fast) (ignore fix-imports element-type))
+  
+  (if fast (return-from loads (funcall (symbol-function 'load-op) stream)))
+  
   (let ((env (make-hash-table :test 'eq)))
     (setf (gethash :proto env) 0)
     (setf (gethash :stack env) nil)

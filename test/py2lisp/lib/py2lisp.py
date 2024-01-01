@@ -72,10 +72,7 @@ class Py2Lisp(Benchmark):
         
     @property
     def mode(self):
-        try:
-            return self._mode
-        except Exception as e:
-            return None
+        return self.mode
     
     @mode.setter
     def mode(self, value):
@@ -84,7 +81,7 @@ class Py2Lisp(Benchmark):
         if value != self.COMPILE_MODE and value != self.INTERPRET_MODE:
             raise SetEvalModeError(f"{repr(value)} not exist!")
         
-        self._mode = value
+        self.mode = value
         self.__setEvalMode()
         
         return True
