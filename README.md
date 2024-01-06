@@ -11,7 +11,7 @@ CentOS Linux release 7.9.2009 (Core), 4 core, 8 threads, 32 GB memory, Python 3.
 
 | Test 100 times   | python-cPickle   | python-pickle   | wo-pickle(optimizing ....) |
 |:----------------:|:----------------:|:---------------:|:--------------------------:|
-|    load          |         0.35     |    6.79         |   2.89                     |
+|    load          |         0.35     |    6.79         |   2.13                     |
 |    dump          |         testing  |    -            |   testing                  |
 
 

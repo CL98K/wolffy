@@ -2,23 +2,10 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf *read-default-float-format* 'double-float)
-
   (setf *cond-exp* '(cond (t (error 'unpickling-error :message (format nil "Not implemented(~A)" op-code)))))
-  (setf *load-op* '(defun load-op (stream)
-                    (let ((proto 0)
-                          (stack nil)
-                          (meta-stack nil)
-                          (memo (make-hash-table :test 'equal))
-                          (framer (make-instance 'unframer :current-frame nil)))
-                     
-                      (handler-case
-                          (loop for op-code = (aref (the (simple-array (unsigned-byte 8) *) (framer-read framer stream 1)) 0)
-                                while op-code
-                                do "fill-cond")
-                        (stop (condition)
-                          (return-from load-op (stop-value condition))))
-                      (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code"))))
-    
+
+  (defparameter *op-func* (make-hash-table))
+  
   (defun type-to-code (obj)
     (typecase obj
       (nil        1000)
@@ -32,8 +19,6 @@
       (symbol     1070)
       (t          2000))))
 
-(defparameter *op-func* (make-hash-table))
-
 (declaim (ftype (function (fixnum hash-table wo-io:binary-stream t) t) perform-op) (inline perform-op))
 (defun perform-op (op-code env stream obj)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
@@ -43,17 +28,20 @@
       (funcall (the function (gethash op-code *op-func*)) env stream obj)
       (error 'unpickling-error :message (format nil "Not implemented(~A)" op-code))))
 
+(defmacro define-fast-op (name args &body body)
+  (let* ((cond-exp (sublis '(((gethash :proto env) . proto)
+                             ((gethash :stack env) . stack)
+                             ((gethash :meta-stack env) . meta-stack)
+                             ((gethash :memo env) . memo)
+                             ((gethash :framer env) . framer)
+                             ((pop-mark env) . (let ((items stack)) (setf stack (pop meta-stack)) (nreverse items))))
+                           *cond-exp* :test #'equal))
+         (nbody (sublis (acons '*cond-exp* cond-exp '()) body :test #'equal)))    
+    `(defun ,name ,args ,@nbody)))
+
 (defmacro defop (name (&optional env stream obj) &body body)
-  ;; inline
-  (rplacd *cond-exp* (append `(((eq op-code ,name) ,@(sublis '(((gethash :proto env) . proto)
-                                                               ((gethash :stack env) . stack)
-                                                               ((gethash :meta-stack env) . meta-stack)
-                                                               ((gethash :memo env) . memo)
-                                                               ((gethash :framer env) . framer)) body :test #'equal)))
-                             (cdr *cond-exp*)))
-  (eval (sublis (acons "fill-cond" *cond-exp* '()) *load-op*))
+  (rplacd *cond-exp* (append `(((eq op-code ,name) ,@body)) (cdr *cond-exp*)))
   
-  ;; noninline
   (let ((e (or env (gensym)))
         (s (or stream (gensym)))
         (o (or obj (gensym))))

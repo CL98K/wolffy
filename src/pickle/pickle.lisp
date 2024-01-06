@@ -92,7 +92,7 @@
 
 (defmethod framer-read ((instance unframer) stream n)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type stream wo-io:binary-stream) (type fixnum n))
+           (type wo-io:binary-stream stream) (type fixnum n))
   
   (let ((current-frame (slot-value instance 'current-frame)))
     (if current-frame

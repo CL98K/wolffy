@@ -2,50 +2,6 @@
 
 (declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
-(defun load (file &key (fix-imports t) (element-type "ascii") (fast nil))
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
-  
-  (with-open-file (stream file :element-type '(unsigned-byte 8))
-    (loads (wo-io:file-stream-to-binary-stream stream) :fix-imports fix-imports :element-type element-type :fast fast)))
-
-(defun loads (stream &key (fix-imports t) (element-type "ascii") (fast nil))
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (type boolean fast) (ignore fix-imports element-type))
-  
-  (if fast (return-from loads (funcall (symbol-function 'load-op) stream)))
-  
-  (let ((env (make-hash-table :test 'eq)))
-    (setf (gethash :proto env) 0)
-    (setf (gethash :stack env) nil)
-    (setf (gethash :meta-stack env) nil)
-    (setf (gethash :memo env) (make-hash-table :test 'equal))
-    (setf (gethash :framer env) (make-instance 'unframer :current-frame nil))
-    
-    (handler-case
-      (loop for op-code = (framer-read (gethash :framer env) stream 1)
-            while op-code
-            do
-            (perform-op (aref (the (simple-array (unsigned-byte 8) *) op-code) 0) env stream nil))
-      (stop (condition)
-        (return-from loads (stop-value condition))))
-    
-    (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
-
-(declaim (ftype (function (t) boolean) decode-string) (inline decode-string))
-(defun decode-string (value)
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (ignore value))
-  t)
-
-(declaim (ftype (function (hash-table) sequence) pop-mark) (inline pop-mark))
-(defun pop-mark (env)
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
-
-  (let ((items (gethash :stack env)))
-    (setf (gethash :stack env) (pop (gethash :meta-stack env)))
-    (nreverse items)))
-
-(defun persistent-load (env pid)
-  (error 'unpickling-error :message "unsupported persistent id encountered"))
-
 (defop +proto+ (env stream)
   (let ((proto (aref (the (simple-array (unsigned-byte 8) *) (framer-read (gethash :framer env) stream 1)) 0)))
     (declare (type fixnum proto))
@@ -293,4 +249,64 @@
 
 (defop +stop+ (env)
   (signal 'stop :value (pop (gethash :stack env))))
+
+
+(declaim (ftype (function (t) boolean) decode-string) (inline decode-string))
+(defun decode-string (value)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (ignore value))
+  t)
+
+(declaim (ftype (function (hash-table) sequence) pop-mark) (inline pop-mark))
+(defun pop-mark (env)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+
+  (let ((items (gethash :stack env)))
+    (setf (gethash :stack env) (pop (gethash :meta-stack env)))
+    (nreverse items)))
+
+(defun persistent-load (pid)
+  (error 'unpickling-error :message "unsupported persistent id encountered"))
+
+(defun load (file &key (fix-imports t) (element-type "ascii") (fast nil))
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+  
+  (with-open-file (stream file :element-type '(unsigned-byte 8))
+    (loads (wo-io:file-stream-to-binary-stream stream) :fix-imports fix-imports :element-type element-type :fast fast)))
+
+(defun loads (stream &key (fix-imports t) (element-type "ascii") (fast nil))
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (type boolean fast) (ignore fix-imports element-type))
+
+  (when fast (return-from loads (load-fast-op stream)))
+  
+  (let ((env (make-hash-table :test 'eq)))
+    (setf (gethash :proto env) 0)
+    (setf (gethash :stack env) nil)
+    (setf (gethash :meta-stack env) nil)
+    (setf (gethash :memo env) (make-hash-table :test 'equal))
+    (setf (gethash :framer env) (make-instance 'unframer :current-frame nil))
+    
+    (handler-case
+        (loop for op-code = (framer-read (gethash :framer env) stream 1)
+              while op-code
+              do
+              (perform-op (aref (the (simple-array (unsigned-byte 8) *) op-code) 0) env stream nil))
+      (stop (condition)
+        (return-from loads (stop-value condition))))
+    
+    (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
+
+(define-fast-op load-fast-op (stream)
+  (let ((proto 0)
+        (stack nil)
+        (meta-stack nil)
+        (memo (make-hash-table :test 'equal))
+        (framer (make-instance 'unframer :current-frame nil)))
+    
+    (handler-case
+        (loop for op-code fixnum = (aref (the (simple-array (unsigned-byte 8) *) (framer-read framer stream 1)) 0)
+              while op-code
+              do *cond-exp*)
+      (stop (condition)
+        (return-from load-fast-op (stop-value condition))))
+    (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
 

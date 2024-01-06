@@ -2,6 +2,96 @@
 
 (declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
+(defop +lsp-nil+ (env)
+  (framer-write (gethash :framer env) +none+))
+
+(defop +lsp-bool+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (proto (gethash :proto env)))
+    (declare (type fixnum proto))
+    
+    (if (>= proto 2)
+        (framer-write framer (if obj +newtrue+ +newfalse+))
+        (framer-write framer (if obj +ture+ +false+)))))
+
+(defop +lsp-int+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (proto (gethash :proto env))
+        (bin (gethash :bin env)))
+    (declare (type fixnum obj proto bin))
+
+    (when bin
+      (if (>= obj 0)
+          (cond ((<= obj #xff) (framer-write framer +binint1+ (pack:pack "<B" obj)) (return))
+                ((<= obj #xffff) (framer-write framer +binint2+ (pack:pack "<H" obj)) (return))))
+
+      (when (and (>= obj #x-80000000) (<= obj #x7fffffff))
+        (framer-write framer +binint+ (pack:pack "<i" obj))
+        (return)))
+
+    (when (>= proto 2)
+      (let* ((encoded (encode-long obj))
+             (n (array-total-size encoded)))
+        (if (< n 256)
+            (framer-write framer +long1+ (pack:pack "<B" n) encoded)
+            (framer-write framer +long4+ (pack:pack "<i" n) encoded))
+        (return)))
+
+    (if (and (>= obj #x-80000000) (<= obj #x7fffffff))
+        (framer-write framer +int+ (sb-ext:string-to-octets (write-to-string obj)) +newline+)
+        (framer-write framer +long+ (sb-ext:string-to-octets (write-to-string obj)) (char-code #\L) +newline+))))
+
+(defop +lsp-float+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (bin (gethash :bin env)))
+    (if bin
+        (framer-write framer +binfloat+ (pack:pack ">d" obj))
+        (framer-write framer +float+ (sb-ext:string-to-octets (write-to-string obj)) +newline+))))
+
+(defop +lsp-str+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (proto (gethash :proto env))
+        (bin (gethash :bin env)))
+    (declare (type fixnum proto) (type boolean bin))
+    (if bin
+        (progn
+          (let* ((encoded (sb-ext:string-to-octets obj :external-format :utf-8))
+                 (n (array-total-size encoded)))
+            (declare (type simple-array encoded) (type fixnum n))
+            (cond
+              ((and (<= n #xff) (>= proto 4))
+               (framer-write framer +short-binunicode+ (pack:pack "<B" n) encoded))
+              ((and (> n #xffffffff) (>= proto 4))
+               (write-large-bytes framer (list +binunicode8+ (pack:pack "<Q" n)) encoded))
+              ((>= n (the fixnum (slot-value framer 'frame-size-target)))
+               (write-large-bytes framer (list +binunicode+ (pack:pack "<I" n)) encoded))
+              (t
+               (framer-write framer +binunicode+ (pack:pack "<I" n) encoded)))))
+        (progn
+          (let* ((objx (uiop/utility:frob-substrings obj "\\" "\\u005c"))
+                 (objx (uiop/utility:frob-substrings objx "\0" "\\u0000"))
+                 (objx (uiop/utility:frob-substrings objx "\n" "\\u000a"))
+                 (objx (uiop/utility:frob-substrings objx "\r" "\\u000d"))
+                 (objx (uiop/utility:frob-substrings objx "\xla" "\\u00la")))
+            (framer-write framer +unicode+ (sb-ext:string-to-octets objx :external-format :utf-8) +newline+)
+            (setf obj objx))))
+    (_memoize env obj)))
+
+(defop +lsp-list+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (bin (gethash :bin env)))
+    (if bin (framer-write framer +empty-list+) (framer-write framer +mark+ +list+))
+    (_memoize env obj)
+    (_batch_appends env obj)))
+
+(defop +lsp-hash-table+ (env nil obj)
+  (let ((framer (gethash :framer env))
+        (bin (gethash :bin env)))
+    (if bin (framer-write framer +empty-dict+) (framer-write framer +mark+ +dict+))
+    (_memoize env obj)
+    (_batch_setitems env obj)))
+
+
 (defun dump (obj file &key (protocol 0) (fix-imports t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type t obj) (type string file) (type fixnum protocol) (type boolean fix-imports))
@@ -178,93 +268,3 @@
                    (framer-write framer +setitem+)))
 
             (if (< diff batchsize) (return-from _batch_setitems))))))
-
-(defop +lsp-nil+ (env)
-  (framer-write (gethash :framer env) +none+))
-
-(defop +lsp-bool+ (env nil obj)
-  (let ((framer (gethash :framer env))
-        (proto (gethash :proto env)))
-    (declare (type fixnum proto))
-    
-    (if (>= proto 2)
-        (framer-write framer (if obj +newtrue+ +newfalse+))
-        (framer-write framer (if obj +ture+ +false+)))))
-
-(defop +lsp-int+ (env nil obj)
-  (let ((framer (gethash :framer env))
-        (proto (gethash :proto env))
-        (bin (gethash :bin env)))
-    (declare (type fixnum obj proto bin))
-
-    (when bin
-      (if (>= obj 0)
-          (cond ((<= obj #xff) (framer-write framer +binint1+ (pack:pack "<B" obj)) (return))
-                ((<= obj #xffff) (framer-write framer +binint2+ (pack:pack "<H" obj)) (return))))
-
-      (when (and (>= obj #x-80000000) (<= obj #x7fffffff))
-        (framer-write framer +binint+ (pack:pack "<i" obj))
-        (return)))
-
-    (when (>= proto 2)
-      (let* ((encoded (encode-long obj))
-             (n (array-total-size encoded)))
-        (if (< n 256)
-            (framer-write framer +long1+ (pack:pack "<B" n) encoded)
-            (framer-write framer +long4+ (pack:pack "<i" n) encoded))
-        (return)))
-
-    (if (and (>= obj #x-80000000) (<= obj #x7fffffff))
-        (framer-write framer +int+ (sb-ext:string-to-octets (write-to-string obj)) +newline+)
-        (framer-write framer +long+ (sb-ext:string-to-octets (write-to-string obj)) (char-code #\L) +newline+))))
-
-(defop +lsp-float+ (env nil obj)
-  (let ((framer (gethash :framer env))
-        (bin (gethash :bin env)))
-    (if bin
-        (framer-write framer +binfloat+ (pack:pack ">d" obj))
-        (framer-write framer +float+ (sb-ext:string-to-octets (write-to-string obj)) +newline+))))
-
-(defop +lsp-str+ (env nil obj)
-  (let ((framer (gethash :framer env))
-        (proto (gethash :proto env))
-        (bin (gethash :bin env)))
-    (declare (type fixnum proto) (type boolean bin))
-    (if bin
-        (progn
-          (let* ((encoded (sb-ext:string-to-octets obj :external-format :utf-8))
-                 (n (array-total-size encoded)))
-            (declare (type simple-array encoded) (type fixnum n))
-            (cond
-              ((and (<= n #xff) (>= proto 4))
-               (framer-write framer +short-binunicode+ (pack:pack "<B" n) encoded))
-              ((and (> n #xffffffff) (>= proto 4))
-               (write-large-bytes framer (list +binunicode8+ (pack:pack "<Q" n)) encoded))
-              ((>= n (the fixnum (slot-value framer 'frame-size-target)))
-               (write-large-bytes framer (list +binunicode+ (pack:pack "<I" n)) encoded))
-              (t
-               (framer-write framer +binunicode+ (pack:pack "<I" n) encoded)))))
-        (progn
-          (let* ((objx (uiop/utility:frob-substrings obj "\\" "\\u005c"))
-                 (objx (uiop/utility:frob-substrings objx "\0" "\\u0000"))
-                 (objx (uiop/utility:frob-substrings objx "\n" "\\u000a"))
-                 (objx (uiop/utility:frob-substrings objx "\r" "\\u000d"))
-                 (objx (uiop/utility:frob-substrings objx "\xla" "\\u00la")))
-            (framer-write framer +unicode+ (sb-ext:string-to-octets objx :external-format :utf-8) +newline+)
-            (setf obj objx))))
-    (_memoize env obj)))
-
-(defop +lsp-list+ (env nil obj)
-  (let ((framer (gethash :framer env))
-        (bin (gethash :bin env)))
-    (if bin (framer-write framer +empty-list+) (framer-write framer +mark+ +list+))
-    (_memoize env obj)
-    (_batch_appends env obj)))
-
-(defop +lsp-hash-table+ (env nil obj)
-  (let ((framer (gethash :framer env))
-        (bin (gethash :bin env)))
-    (if bin (framer-write framer +empty-dict+) (framer-write framer +mark+ +dict+))
-    (_memoize env obj)
-    (_batch_setitems env obj)))
-
