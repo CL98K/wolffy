@@ -2,7 +2,7 @@
   :description "wolffy"
   :version "0.0.1"
   :author "CL98K <917599580@QQ.COM>"
-  :licence ""
+  :licence "MIT"
   :depends-on (#:uiop #:pack #:select #:alexandria #:fast-io #:kit)
   :components ((:module "src"
                 :serial t
@@ -17,15 +17,14 @@
                                            (:file "conditions")
                                            (:file "opcodes")
                                            (:file "loads")
-                                           ;; (:file "dumps")
-                                           ))
+                                           (:file "dumps")))
                              (:file "package")))))
 
 (defsystem :wolffy/test
   :description "wolffy test"
   :version "1.0.0"
-  :author "GZZ <x>"
-  :licence ""
+  :author "CL98K <917599580@QQ.COM>"
+  :licence "MIT"
   :depends-on (:wolffy)
   :components ((:module "test"
                 :components ((:file "io-test")

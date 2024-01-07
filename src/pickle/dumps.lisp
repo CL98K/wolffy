@@ -92,42 +92,6 @@
     (_batch_setitems env obj)))
 
 
-(defun dump (obj file &key (protocol 0) (fix-imports t))
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type t obj) (type string file) (type fixnum protocol) (type boolean fix-imports))
-  
-  (with-open-file (stream file :element-type '(unsigned-byte 8))
-    (dumps obj :stream stream :protocol protocol :fix-imports fix-imports)))
-
-(defun dumps (obj &key (stream (wo-io:make-binary-stream)) (protocol 0) (fix-imports t))
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type t obj) (type wo-io:binary-stream stream) (type fixnum protocol) (type boolean fix-imports))
-
-  (let ((env (make-hash-table :test 'eq))
-        (protocol (if (= protocol 0) *default-protocol* (if (< protocol 0) *highest-protocol* protocol)))
-        (framer (make-instance 'framer :stream stream :current-frame nil)))
-    (declare (type hash-table env) (type fixnum protocol))
-
-    (if (> protocol *highest-protocol*) (error 'value-error :message (format nil "pickle protocol must be <= ~A" *highest-protocol*)))
-    
-    (setf (gethash :proto env) protocol)
-    (setf (gethash :bin env) (if (>= protocol 1) t nil))
-    (setf (gethash :fast env) 0)
-    (setf (gethash :fix-imports env) (if (and fix-imports (< protocol 3)) t nil))
-    (setf (gethash :memo env) (make-hash-table :test 'eq))
-    (setf (gethash :framer env) framer)
-    (setf (gethash :batchsize env) 1000)
-    
-    (if (>= protocol 2)
-        (framer-write framer +proto+ (pack:pack "<B" protocol)))
-    (if (>= protocol 4)
-        (framer-start framer))
-
-    (_save env obj)
-    (framer-write framer +stop+)
-    (framer-end framer)
-    (wo-io:binary-stream-memery-view stream)))
-
 (declaim (ftype (function (hash-table t) t) _memoize) (inline _memoize))
 (defun _memoize (env obj)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
@@ -268,3 +232,40 @@
                    (framer-write framer +setitem+)))
 
             (if (< diff batchsize) (return-from _batch_setitems))))))
+
+(defun dump (obj file &key (protocol 0) (fix-imports t))
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type t obj) (type string file) (type fixnum protocol) (type boolean fix-imports))
+  
+  (with-open-file (stream file :element-type '(unsigned-byte 8))
+    (dumps obj :stream stream :protocol protocol :fix-imports fix-imports)))
+
+(defun dumps (obj &key (stream (wo-io:make-binary-stream)) (protocol 0) (fix-imports t))
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type t obj) (type wo-io:binary-stream stream) (type fixnum protocol) (type boolean fix-imports))
+
+  (let ((env (make-hash-table :test 'eq))
+        (protocol (if (= protocol 0) *default-protocol* (if (< protocol 0) *highest-protocol* protocol)))
+        (framer (make-instance 'framer :stream stream :current-frame nil)))
+    (declare (type hash-table env) (type fixnum protocol))
+
+    (if (> protocol *highest-protocol*) (error 'value-error :message (format nil "pickle protocol must be <= ~A" *highest-protocol*)))
+    
+    (setf (gethash :proto env) protocol)
+    (setf (gethash :bin env) (if (>= protocol 1) t nil))
+    (setf (gethash :fast env) 0)
+    (setf (gethash :fix-imports env) (if (and fix-imports (< protocol 3)) t nil))
+    (setf (gethash :memo env) (make-hash-table :test 'eq))
+    (setf (gethash :framer env) framer)
+    (setf (gethash :batchsize env) 1000)
+    
+    (if (>= protocol 2)
+        (framer-write framer +proto+ (pack:pack "<B" protocol)))
+    (if (>= protocol 4)
+        (framer-start framer))
+
+    (_save env obj)
+    (framer-write framer +stop+)
+    (framer-end framer)
+    (wo-io:binary-stream-memery-view stream)))
+
