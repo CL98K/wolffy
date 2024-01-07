@@ -56,14 +56,14 @@ class Py2Lisp(Benchmark):
         """core: image 文件路径"""
         if not os.path.exists(core): raise CoreNotExist(f"{repr(core)} not exist!")
         self.__lisp = subprocess.Popen(core, shell=False, bufsize=-1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        self.mode = None
+        self.__mode = None
         
         def exitHook(): self.close()
         atexit.register(exitHook)
 
     def __setEvalMode(self):
         """设置求值模式"""
-        return self.eval(f"(setf *evaluator-mode* {self.mode})")
+        return self.eval(f"(setf *evaluator-mode* {self.__mode})")
 
     def __syntaxCheck(self, string):
         """语法检查"""
@@ -72,7 +72,7 @@ class Py2Lisp(Benchmark):
         
     @property
     def mode(self):
-        return self.mode
+        return self.__mode
     
     @mode.setter
     def mode(self, value):
@@ -81,7 +81,7 @@ class Py2Lisp(Benchmark):
         if value != self.COMPILE_MODE and value != self.INTERPRET_MODE:
             raise SetEvalModeError(f"{repr(value)} not exist!")
         
-        self.mode = value
+        self.__mode = value
         self.__setEvalMode()
         
         return True

@@ -36,7 +36,7 @@
                              ((gethash :framer env) . framer)
                              ((pop-mark env) . (let ((items stack)) (setf stack (pop meta-stack)) (nreverse items))))
                            *cond-exp* :test #'equal))
-         (nbody (sublis (acons '*cond-exp* cond-exp '()) body :test #'equal)))    
+         (nbody (sublis (acons '*cond-exp* cond-exp '()) body :test #'equal)))
     `(defun ,name ,args ,@nbody)))
 
 (defmacro defop (name (&optional env stream obj) &body body)

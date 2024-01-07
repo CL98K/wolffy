@@ -31,7 +31,7 @@
            (index (array-total-size length-info))
            (data-len (parse-integer (octets-to-string (make-array index :element-type '(unsigned-byte 8) :initial-contents length-info))))
            (data (coerce (loop for i fixnum from (1+ index) to (+ index (the fixnum data-len)) collect (cffi:mem-aref addr :unsigned-char i)) 'vector)))
-      (wo-pickle:loads (wo-io:make-binary-stream :initial-data data)))))
+      (wo-pickle:loads (wo-io:make-binary-stream :initial-data data) :fast t))))
 
 (defun read-data-thread ()
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
