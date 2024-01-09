@@ -13,9 +13,10 @@ lisp.eval(f'(open-mmap "{filepath}")')
 
 stime = time.time()
 
-for i in range(10000):
+for i in range(20000):
     SharedMemory.write({"a": i, "b": [i,2,3], "c": 1.0, "d": "asdasdasdasda", "e": "中国"}, handle)
     lisp.eval('(read-data)')
+    SharedMemory.read(handle)
 
 print(time.time() - stime)
 
