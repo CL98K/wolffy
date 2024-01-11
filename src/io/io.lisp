@@ -213,4 +213,8 @@
 
 (defun file-stream-to-binary-stream (stream)
   (declare (type sb-sys:fd-stream stream))
-  (make-binary-stream :initial-data (alexandria:read-stream-content-into-byte-vector stream)))
+  (let* ((size (file-length stream))
+         (buffer (fast-io:make-octet-vector size)))
+    (sb-sys:read-n-bytes stream buffer 0 size)
+    (make-binary-stream :initial-data buffer)))
+

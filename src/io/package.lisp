@@ -2,6 +2,7 @@
   (:documentation "wolffy io")
   (:nicknames :wo-io :wol-io)
   (:use #:cl)
+  (:import-from #:sb-sys)
   (:import-from #:sb-gray)
   (:import-from #:fast-io)
   (:import-from #:alexandria)
