@@ -14,8 +14,8 @@
   (s-pointer 0 :type (mod 67108864))
   (separator nil))
 
-(defclass binary-stream (sb-gray:fundamental-binary-stream)
-  ((binary :initarg :binary :type binary)))
+(defmethod print-object ((object binary) stream)
+  (format t "#<IO:BINARY-STREAM {~A}" (sb-kernel:get-lisp-obj-address object)))
 
 (defun make-binary-stream (&key (initial-data #()) (initial-size 128) (restream-size 1.5) (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
@@ -25,157 +25,158 @@
          (size (array-total-size initial-data))
          (initial-size (if (> size 0) size initial-size))
          (stream (fast-io:make-octet-vector initial-size)))
-    (setf instance (make-instance 'binary-stream
-                                  :binary (make-binary :stream stream :size initial-size :restream-size restream-size)))
+    (setf instance (make-binary :stream stream :size initial-size :restream-size restream-size))
     (if (> size 0) (binary-stream-writes instance (coerce initial-data 'fast-io:octet-vector) :upgrade-p upgrade-p))
     instance))
 
 (defun binary-stream-close (instance)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance))
+           (type binary instance))
 
-  (setf (slot-value instance 'binary) nil))
+  (setf (binary-stream instance) (fast-io:make-octet-vector 0))
+  t)
 
 (defun binary-stream-info (instance)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance))
+           (type binary instance))
 
-  (slot-value instance 'binary))
+  (format t
+          "#(:STREAN ~A~% :SIZE ~A~% :RESTREAM-SIZE ~A~% :W-POINTER ~A~% :R-POINTER ~A~% :S-POINTER ~A~% :SEPARATOR ~A~%)"
+          (binary-stream instance)
+          (binary-size instance)
+          (binary-restream-size instance)
+          (binary-w-pointer instance)
+          (binary-r-pointer instance)
+          (binary-s-pointer instance)
+          (binary-separator instance)))
 
 (defun binary-stream-memery-view (instance)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance))
+           (type binary instance))
   
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (w-pointer (binary-w-pointer binary))
+  (let* ((stream (binary-stream instance))
+         (w-pointer (binary-w-pointer instance))
          (buffer (fast-io:make-octet-vector w-pointer)))
-    (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer))
+    (declare (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer))
 
     (fast-io:fast-read-sequence buffer (fast-io:make-input-buffer :vector stream))
     (values buffer w-pointer)))
 
 (defun binary-stream-file-position (instance &optional position-spec)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type (or fixnum null) position-spec))
+           (type binary instance) (type (or fixnum null) position-spec))
 
-  (let* ((binary (slot-value instance 'binary))
-         (sep (binary-separator binary)))
-    (declare (type binary binary) (type list sep))
+  (let* ((sep (binary-separator instance)))
+    (declare (type list sep))
     
     (when position-spec
-      (setf (binary-r-pointer binary) position-spec)
-      (setf (binary-s-pointer binary) (loop for i fixnum downfrom (1- (length sep)) to 0
-                                            for j fixnum = (nth i sep)
-                                            for x fixnum from 0
-                                            while (< j position-spec) finally (return x))))
-    (binary-r-pointer binary)))
+      (setf (binary-r-pointer instance) position-spec)
+      (setf (binary-s-pointer instance) (loop for i fixnum downfrom (1- (length sep)) to 0
+                                              for j fixnum = (nth i sep)
+                                              for x fixnum from 0
+                                              while (< j position-spec) finally (return x))))
+    (binary-r-pointer instance)))
 
 (defun binary-stream-upgrade-space (instance &optional (size 0))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type fixnum size))
+           (type binary instance) (type fixnum size))
 
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (stream-size (binary-size binary))
-         (restream-size (the float (binary-restream-size binary)))
+  (let* ((stream (binary-stream instance))
+         (stream-size (binary-size instance))
+         (restream-size (the float (binary-restream-size instance)))
          (upgrade-size (floor (* (if (= size 0) stream-size size) restream-size)))
          (buffer (fast-io:make-octet-vector upgrade-size)))
-    (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type (mod 67108864) stream-size upgrade-size) (type float restream-size))
+    (declare (type fast-io:octet-vector stream buffer) (type (mod 67108864) stream-size upgrade-size) (type float restream-size))
     
     (loop for i fixnum from 0 below stream-size do (setf (aref buffer i) (aref stream i)))
 
-    (setf (binary-stream binary) buffer)
-    (setf (binary-size binary) (1- upgrade-size))))
+    (setf (binary-stream instance) buffer)
+    (setf (binary-size instance) (1- upgrade-size))))
 
 (defun binary-stream-write (instance integer)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type (mod 256) integer))
+           (type binary instance) (type (mod 256) integer))
 
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (stream-size (binary-size binary))
-         (w-pointer (binary-w-pointer binary))
-         (sep (binary-separator binary)))
-    (declare (type binary binary) (type fast-io:octet-vector stream) (type (mod 67108864) stream-size w-pointer) (type list sep))
+  (let* ((stream (binary-stream instance))
+         (stream-size (binary-size instance))
+         (w-pointer (binary-w-pointer instance))
+         (sep (binary-separator instance)))
+    (declare (type fast-io:octet-vector stream) (type (mod 67108864) stream-size w-pointer) (type list sep))
     
     (if (>= w-pointer stream-size) (binary-stream-upgrade-space instance))
     (if (eq integer +newline+) (push w-pointer sep))
 
     (setf (aref stream w-pointer) integer)
-    (incf (binary-w-pointer binary))))
+    (incf (binary-w-pointer instance))))
 
 (defun binary-stream-writes (instance integers &key (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type fast-io:octet-vector integers) (type boolean upgrade-p))
+           (type binary instance) (type fast-io:octet-vector integers) (type boolean upgrade-p))
   
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (stream-size (binary-size binary))
-         (w-pointer (binary-w-pointer binary))
+  (let* ((stream (binary-stream instance))
+         (stream-size (binary-size instance))
+         (w-pointer (binary-w-pointer instance))
          (data-size (array-total-size integers)))
-    (declare (type binary binary) (type fast-io:octet-vector stream) (type (mod 67108864) data-size stream-size w-pointer))
+    (declare (type fast-io:octet-vector stream) (type (mod 67108864) data-size stream-size w-pointer))
     
     (when (and upgrade-p (<= (- (- stream-size w-pointer) data-size) 0))
       (binary-stream-upgrade-space instance (+ stream-size data-size))
-      (setf stream (binary-stream binary)))
+      (setf stream (binary-stream instance)))
     
     (loop for integer fixnum across integers
           for i fixnum from w-pointer
           do
           (setf (aref stream i) integer)
-          (if (eq integer +newline+) (push i (binary-separator binary))))
+          (if (eq integer +newline+) (push i (binary-separator instance))))
     
-    (incf (binary-w-pointer binary) data-size)))
+    (incf (binary-w-pointer instance) data-size)))
 
 (defun binary-stream-read (instance)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance))
+           (type binary instance))
   
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (w-pointer (binary-w-pointer binary))
-         (r-pointer (binary-r-pointer binary)))
-    (declare (type binary binary) (type fast-io:octet-vector stream) (type (mod 67108864) w-pointer r-pointer))
+  (let* ((stream (binary-stream instance))
+         (w-pointer (binary-w-pointer instance))
+         (r-pointer (binary-r-pointer instance)))
+    (declare (type fast-io:octet-vector stream) (type (mod 67108864) w-pointer r-pointer))
     
     (if (>= r-pointer w-pointer) (return-from binary-stream-read nil))
     (prog1 (aref stream r-pointer)
-      (incf (binary-r-pointer binary)))))
+      (incf (binary-r-pointer instance)))))
 
 (defun binary-stream-reads (instance &optional (n 1))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type fixnum n))
+           (type binary instance) (type fixnum n))
   
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (w-pointer (binary-w-pointer binary))
-         (r-pointer (binary-r-pointer binary))
+  (let* ((stream (binary-stream instance))
+         (w-pointer (binary-w-pointer instance))
+         (r-pointer (binary-r-pointer instance))
          (diff (- w-pointer r-pointer))
          (n (if (> diff n) n diff))
          (buffer (fast-io:make-octet-vector n)))
-    (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer r-pointer diff n))
-    
-    (prog1 buffer
-      (loop for i fixnum from r-pointer
-            for j fixnum from 0 to (1- n)
-            do (setf (aref buffer j) (aref stream i)))
-      (incf (binary-r-pointer binary) n))))
+    (declare (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer r-pointer diff n))
+
+    (loop for i fixnum from r-pointer
+          for j fixnum from 0 to (1- n)
+          do (setf (aref buffer j) (aref stream i)))
+
+    (incf (binary-r-pointer instance) n)
+    (values buffer n)))
 
 (defun binary-stream-read-line (instance)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance))
+           (type binary instance))
   
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (w-pointer (binary-w-pointer binary))
-         (r-pointer (binary-r-pointer binary))
-         (s-pointer (binary-s-pointer binary))
-         (sep (binary-separator binary))
+  (let* ((stream (binary-stream instance))
+         (w-pointer (binary-w-pointer instance))
+         (r-pointer (binary-r-pointer instance))
+         (s-pointer (binary-s-pointer instance))
+         (sep (binary-separator instance))
          (sep-size (length sep))
          (index (if sep (nth (- sep-size s-pointer 1) sep) w-pointer))
          (n (if (/= index w-pointer) (if (> index r-pointer) (1+ (- index r-pointer)) 0) (- w-pointer r-pointer)))
          (buffer (fast-io:make-octet-vector n)))
-    (declare (type binary binary) (type fast-io:octet-vector stream buffer) (type list sep) (type (mod 67108864) w-pointer r-pointer sep-size index n))
+    (declare (type fast-io:octet-vector stream buffer) (type list sep) (type (mod 67108864) w-pointer r-pointer sep-size index n))
 
     (when (and (= n 0) (> w-pointer r-pointer))
       (setf n (- w-pointer r-pointer))
@@ -185,30 +186,29 @@
       (loop for i fixnum from r-pointer
             for j fixnum from 0 to (1- n)
             do (setf (aref buffer j) (aref stream i)))
-      (incf (binary-r-pointer binary) n)
-      (if (< (1+ s-pointer) sep-size) (incf (binary-s-pointer binary))))))
+      (incf (binary-r-pointer instance) n)
+      (if (< (1+ s-pointer) sep-size) (incf (binary-s-pointer instance))))))
 
 (defun binary-stream-read-into (instance buffer)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type fast-io:octet-vector buffer))
+           (type binary instance) (type fast-io:octet-vector buffer))
   
-  (let* ((binary (slot-value instance 'binary))
-         (stream (binary-stream binary))
-         (w-pointer (binary-w-pointer binary))
-         (r-pointer (binary-r-pointer binary))
+  (let* ((stream (binary-stream instance))
+         (w-pointer (binary-w-pointer instance))
+         (r-pointer (binary-r-pointer instance))
          (buffer-size (array-total-size buffer))
          (n (if (< (+ r-pointer buffer-size) w-pointer) buffer-size (- w-pointer r-pointer))))
-    (declare (type binary binary) (type fast-io:octet-vector stream) (type (mod 67108864) w-pointer r-pointer buffer-size n))
+    (declare (type fast-io:octet-vector stream) (type (mod 67108864) w-pointer r-pointer buffer-size n))
 
     (loop for i fixnum from r-pointer
           for j fixnum from 0 to (1- n)
           do (setf (aref buffer j) (aref stream i)))
-    (incf (binary-r-pointer binary) n)
+    (incf (binary-r-pointer instance) n)
     n))
 
 (defun binary-stream-read-sequence (instance buffer &optional start end)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary-stream instance) (type fast-io:octet-vector buffer) (ignore start end))
+           (type binary instance) (type fast-io:octet-vector buffer) (ignore start end))
   (binary-stream-read-into instance buffer))
 
 (defun file-stream-to-binary-stream (stream)

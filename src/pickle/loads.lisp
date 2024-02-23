@@ -196,7 +196,7 @@
 ;; 待补充
 ;; (defop +get+ (env stream))
 
-(defop +binget+ (env stream)  
+(defop +binget+ (env stream)
   (push (gethash (aref (the (simple-array (unsigned-byte 8) *) (framer-read (gethash :framer env) stream 1)) 0) (gethash :memo env)) (gethash :stack env)))
 
 (defop +long-binget+ (env stream)
