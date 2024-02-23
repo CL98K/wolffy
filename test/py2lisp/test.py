@@ -7,12 +7,14 @@ lisp.mode = Py2Lisp.COMPILE_MODE
 
 lisp.initialize()
 
-print(lisp.print(1))
+lisp.print(1)
+lisp.print(1)
+lisp.print(1)
 
 # stime = time.time()
 
-# for i in range(20000):
-#     lisp.print({"a": i, "b": [i,2,3], "c": 1.0, "d": "asdasdasdasda", "e": "中国"})
+# for i in range(3):
+#     lisp.print(1)
 
 # print(time.time() - stime)
 

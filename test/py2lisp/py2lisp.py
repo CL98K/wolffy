@@ -3,18 +3,19 @@
 import os
 import mmap
 import json
-import time
 import atexit
 import pickle
 import tempfile
 import subprocess
 
+from functools import partial
 
 class Error(Exception): pass
 class CoreNotExist(Exception): pass
 class EvalModeError(Exception): pass
 class SetEvalModeError(Exception): pass
 class InitLISPENVError(Exception): pass
+class PackageNotCall(Exception): pass
 
 class SharedMemory():
     MMAP_FPATH_MAP = {}
@@ -98,36 +99,42 @@ class SharedMemory():
             yield pickle.loads(handle[index+1:start])
 
 
-class Benchmark():
-    def __test(self):
-        cnt = 10
-        number = 10000
-        times = []
-        code = "1111111111"
+class LSPackage():
+    def __init__(self, env, pname):
+        self.env = env
+        self.pname = pname
+
+    def __getattr__(self, name):
+        def __call(syntax, *args, **kwargs):
+            SharedMemory.write([args, kwargs], self.env._Py2Lisp__sm)
+            self.env.eval(f"(pycall #'{self.pname}:{syntax})", parse=False)
+            return SharedMemory.read(self.env._Py2Lisp__sm)
         
-        for _ in range(cnt):
-            stime = time.time()
-            
-            for _ in range(number):
-                self.eval(code)
-                
-            times.append(time.time() - stime)
-            
-        return int(number * cnt / sum(times))
-    
-    def benchmark(self):
-        print("------------------ Py2Lisp Bemchmark ------------------")
-        
-        self.mode = self.COMPILE_MODE
-        print("Compile Mode: ", self.__test())
-        
-        self.mode = self.INTERPRET_MODE
-        print("Interpret Mode: ", self.__test())
-        
-        return True
+        symbols = self.env.eval(f"(let ((col nil)) (do-external-symbols (s '{self.pname}) (push (symbol-name s) col)) col)", repl=True, parse=True)
+
+        for symbol in eval(symbols):
+            nsymbol = symbol.replace("-", "_").replace("*", "").replace("+", "").lower()
+            describe = self.env.eval(f"(describe '{self.pname}:{symbol})", parse=True)
+
+            if "names a compiled function" in describe:
+                self.__dict__[nsymbol] = partial(__call, symbol)
+                self.__dict__[nsymbol].__doc__ = describe
+            elif "names a macro" in describe:
+                self.__dict__[nsymbol] = partial(__call, symbol)
+                self.__dict__[nsymbol].__doc__ = describe
+            elif "names a special variable" in describe:
+                tag = "Value: "
+                idx = describe.find(tag) + len(tag)
+                self.__dict__[nsymbol] = describe[idx:describe.find("\n", idx+1)]
+            elif "names a constant variable" in describe:
+                tag = "Value: "
+                idx = describe.find(tag) + len(tag)
+                self.__dict__[nsymbol] = describe[idx:describe.find("\n", idx+1)]
+
+        return self.__dict__[name]
 
 
-class Py2Lisp(Benchmark):
+class Py2Lisp():
     COMPILE_MODE = ":compile"
     INTERPRET_MODE = ":interpret"
     
@@ -151,9 +158,9 @@ class Py2Lisp(Benchmark):
         atexit.register(exitHook)
         
     def __getattr__(self, name):
-        def __call(syntax, args, kwargs):
+        def __call(syntax, *args, **kwargs):
             SharedMemory.write([args, kwargs], self.__sm)
-            self.eval(f"(pycall #'{lname})", parse=False)
+            self.eval(f"(pycall #'{syntax})", parse=False)
             return SharedMemory.read(self.__sm)
         
         lname = f"*{name[2:]}*" if name.startswith("V_") else name
@@ -164,19 +171,21 @@ class Py2Lisp(Benchmark):
         package = self.eval(f"(find-package '{lname})", parse=True)
         
         if "names a compiled function" in describe:
-            self.__dict__[name] = lambda *args, **kwargs: __call(lname, args, kwargs)
+            self.__dict__[name] = partial(__call, lname)
             self.__dict__[name].__doc__ = describe
         elif "names a macro" in describe:
-            self.__dict__[name] = lambda *args, **kwargs: __call(lname, args, kwargs)
+            self.__dict__[name] = partial(__call, lname)
             self.__dict__[name].__doc__ = describe
         elif "names a special variable" in describe:
             tag = "Value: "
-            self.__dict__[name] = describe[describe.find(tag) + len(tag):]
+            idx = describe.find(tag) + len(tag)
+            self.__dict__[name] = describe[idx:describe.find("\n", idx+1)]
         elif "names a constant variable" in describe:
             tag = "Value: "
-            self.__dict__[name] = describe[describe.find(tag) + len(tag):]
+            idx = describe.find(tag) + len(tag)
+            self.__dict__[name] = describe[idx:describe.find("\n", idx+1)]
         elif package and package != "NIL":
-            pass
+            self.__dict__[name] = LSPackage(self, lname)
         else:
             raise AttributeError(f"'Py2Lisp' object has no attribute '{name}'")
 
@@ -244,7 +253,8 @@ class Py2Lisp(Benchmark):
             for line in iter(self.__lisp.stdout.readline, b""):
                 if b"Nul" in line: break
                 if line.startswith(b"* "): continue
-                print(line.rstrip().decode("utf-8"))
+                if b"NIL" in line: break
+                print("M:", line.rstrip().decode("utf-8"))
             return True
 
         if not result: return ""
@@ -287,7 +297,6 @@ if __name__== "__main__":
     lisp = Py2Lisp("./sbcl.core")
     lisp.mode = Py2Lisp.COMPILE_MODE
     
-    lisp.benchmark()
     lisp.repl()
     
     lisp.close()

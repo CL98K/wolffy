@@ -55,7 +55,7 @@
   
   (destructuring-bind (addr fd size) *mmap-file*
     (declare (ignore fd size))
-    
-    (multiple-value-bind (args kwargs) (read-data addr)
+
+    (destructuring-bind (args kwargs) (read-data addr)
       (write-data addr (apply func args)))))
 
