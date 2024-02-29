@@ -7,15 +7,11 @@ lisp.mode = Py2Lisp.COMPILE_MODE
 
 lisp.initialize()
 
-lisp.print(1)
-lisp.print(1)
-lisp.print(1)
+stime = time.time()
 
-# stime = time.time()
+for i in range(10000):
+    x = lisp.test_interface({"a": 1, "b": [i,2,3], "c": 1.0, "d": "asdas\ndasdasda", "e": "中国"}, block=False)
 
-# for i in range(3):
-#     lisp.print(1)
-
-# print(time.time() - stime)
+print(time.time() - stime)
 
 lisp.finalize()

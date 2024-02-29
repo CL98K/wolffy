@@ -19,23 +19,32 @@
     (mmap:munmap addr fd size)
     (setf *mmap-file* nil)))
 
-(defun read-data (addr)
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+(declaim (ftype (function (system-area-pointer fixnum fixnum) t) %read-data) (inline %read-data))
+(defun %read-data (addr offset size)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type system-area-pointer addr) (type fixnum offset size))
   
-  (let* ((length-info (coerce (loop for i from 0 to 10
-                                    for info = (cffi:mem-aref addr :unsigned-char i)
-                                    while (/= info 0) collect info) 'vector))
-         (index (array-total-size length-info))
-         (data-len (parse-integer (octets-to-string (make-array index :element-type '(unsigned-byte 8) :initial-contents length-info))))
-         (data (coerce (loop for i fixnum from (1+ index) to (+ index (the fixnum data-len)) collect (cffi:mem-aref addr :unsigned-char i)) 'vector)))
-    
+  (let* ((data (coerce (loop for i fixnum from (1+ offset) to (+ offset size) collect (cffi:mem-aref addr :unsigned-char i)) 'vector)))
     (wo-pickle:loads (wo-io:make-binary-stream :initial-data data) :fast t)))
 
-(defun write-data (addr data)
-  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+(defun read-data (addr ipoint)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type system-area-pointer addr) (type fixnum ipoint))
+  
+  (let* ((length-info (coerce (loop for i from (1+ ipoint) to (+ 10 ipoint)
+                                    for info = (cffi:mem-aref addr :unsigned-char i)
+                                    while (/= info 0) collect info) 'vector))
+         (offset (array-total-size length-info))
+         (data-len (parse-integer (octets-to-string (make-array offset :element-type '(unsigned-byte 8) :initial-contents length-info)))))
+    
+    (%read-data addr (+ ipoint offset 1) data-len)))
+
+(defun write-data (addr offset limit data)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
+           (type system-area-pointer addr) (type fixnum offset limit))
 
   (multiple-value-bind (val size) (wo-pkl:dumps data)
-    (let ((i 0))
+    (let ((i (1+ offset)))
       (declare (type fixnum i))
       (loop for v across (sb-ext:string-to-octets (write-to-string size) :external-format :utf-8)
             do
@@ -47,15 +56,29 @@
       (loop for v across val
             do
             (incf i)
-            (setf (cffi:mem-aref addr :unsigned-char i) v)))))
+            (setf (cffi:mem-aref addr :unsigned-char i) v))
+      (setf (cffi:mem-aref addr :unsigned-char offset) 48))))
 
-(defun pycall (func &key (offset 0))
+(defun pycall (func &key (offset 0) (size 0) (ipoint 0) (limit 0))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type function func) (type fixnum offset))
-  
-  (destructuring-bind (addr fd size) *mmap-file*
-    (declare (ignore fd size))
+           (type function func) (type fixnum offset size ipoint limit))
 
-    (destructuring-bind (args kwargs) (read-data addr)
-      (write-data addr (apply func args)))))
+  (destructuring-bind (addr fd space-size) *mmap-file*
+    (declare (ignore fd space-size))
+    
+    (destructuring-bind (args kwargs) (%read-data addr (+ ipoint offset) size)
+      (write-data addr ipoint limit (apply func args))))
+  (return-from pycall nil))
 
+;;;测试接口
+(defun test-interface (&rest args) args)
+(defun test-interfacex () 1)
+
+;;;测试服务
+;; (defun main ()
+;;   (open-space "/mnt/d/Worker/Lisp/tools/wolffy/test/py2lisp/_smp/16052.sm")
+;;   (time (loop repeat 10000 do (pycall #'test-interface :offset 2 :size 29)))  
+;;   (close-space))
+
+;; (main)
+;; (quit)
