@@ -216,13 +216,20 @@ class Future():
     def done(self):
         return self.__success
     
-    def get_result(self):
+    def get_result(self, timeout=None):
         if self.__dgauge: return self.__result
         
-        if SharedMemory.done(self.__space, self.__offset):
-            self.__result = SharedMemory.read(self.__space, self.__offset)
-            self.__success = True
-            self.__dgauge = True
+        timeout = timeout if isinstance(timeout, (int, float)) else 2 ** 32
+        stime = time.time()
+        
+        while True:
+            if SharedMemory.done(self.__space, self.__offset):
+                self.__result = SharedMemory.read(self.__space, self.__offset)
+                self.__success = True
+                self.__dgauge = True
+                break
+            if (time.time() - stime) >= timeout: break
+            time.sleep(0.1)
         
         return self.__result
     
@@ -278,7 +285,7 @@ class Py2Lisp():
             
             iblock, (ipoint, limit) = SharedMemory.getBlock(self.__sm, self.__setFuture)
             future = None if tag else Future(self.__sm, ipoint)
-            if future: self.__future[iblock] = future
+            if future: self.__future[iblock] = (int(time.time()), future)
             
             offset, size, _ = SharedMemory.write([args, kwargs], self.__sm, ipoint)
             self.eval(f"(pycall #'{syntax} :offset {offset} :size {size} :ipoint {ipoint} :limit {limit})", self.E_MODE_BACKGROUND|self.E_MODE_BLOCK if tag else self.E_MODE_BACKGROUND|self.E_MODE_NONBLOCK)
@@ -324,6 +331,11 @@ class Py2Lisp():
                 os.set_blocking(self.__lisp.stdout.fileno(), self.__io_mode)
         else: #阻塞模式
             if not self.__io_mode: #由非阻塞模式设置为阻塞模式
+                for inode, (_, future) in sorted(self.__future.items(), key=lambda x: x[-1][0]): #等待所有 future 对象完成
+                    self.__lisp.stdout.read()
+                    future.get_result()
+                    del self.__future[inode]
+                
                 self.__io_mode = True
                 self.__lisp.stdout.read()
                 os.set_blocking(self.__lisp.stdout.fileno(), self.__io_mode)
@@ -333,8 +345,8 @@ class Py2Lisp():
     def __setFuture(self, inode, data):
         """设置 Future"""
         if inode in self.__future:
-            self.__future[inode].set_result(data)
-            self.__future[inode].set_status(True)
+            self.__future[inode][-1].set_result(data)
+            self.__future[inode][-1].set_status(True)
             del self.__future[inode]
         
         return True
@@ -343,6 +355,13 @@ class Py2Lisp():
         """语法检查"""
         if string.count("(") != string.count(")"):
             return SyntaxError(f"unexpected EOF while parsing: {string}")
+        
+    def __writePIPE(self, data):
+        """写数据"""
+        self.__lisp.stdin.write(data)
+        self.__lisp.stdin.flush()
+        
+        return True
     
     def __readPIPE(self, tag):
         """读取数据"""
@@ -413,12 +432,10 @@ class Py2Lisp():
             syntax = f"(shasht:write-json {syntax} nil)\n{self.FEEDBACK}\n".encode("utf-8")
         else:
             syntax = f"{syntax}\n{self.FEEDBACK}\n".encode("utf-8")
-        
-        self.__lisp.stdin.write(syntax)
-        self.__lisp.stdin.flush()
-        
+
         if (mode == self.E_MODE_FOREGROUND) or (mode == self.E_MODE_FOREGROUND|self.E_MODE_BLOCK):
             self.__setBlockMode(False)
+            self.__writePIPE(syntax)
             infos = self.__readPIPE(1)
             if not infos: return ""
             
@@ -435,9 +452,11 @@ class Py2Lisp():
             return self.EXCEPTION.get(target[:index], Error)("\n".join([target[index+2:]] + infos[1:]))
         elif (mode == self.E_MODE_BACKGROUND) or (mode == self.E_MODE_BLOCK) or (mode == self.E_MODE_BACKGROUND|self.E_MODE_BLOCK):
             self.__setBlockMode(False)
+            self.__writePIPE(syntax)
             self.__readPIPE(2)
         elif (mode == self.E_MODE_NONBLOCK) or (mode == self.E_MODE_BACKGROUND|self.E_MODE_NONBLOCK):
             self.__setBlockMode(True)
+            self.__writePIPE(syntax)
             self.__readPIPE(3)
         else:
             raise ModeNotExist(mode)
