@@ -72,7 +72,6 @@
 
 ;;;测试接口
 (defun test-interface (&rest args) args)
-(defun test-interfacex () 1)
 
 ;;;测试服务
 ;; (defun main ()

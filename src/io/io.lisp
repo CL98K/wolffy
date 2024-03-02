@@ -14,6 +14,8 @@
   (s-pointer 0 :type (mod 67108864))
   (separator nil))
 
+(deftype binary-stream () `binary)
+
 (defmethod print-object ((object binary) stream)
   (format t "#<IO:BINARY-STREAM {~A}" (sb-kernel:get-lisp-obj-address object)))
 
@@ -83,12 +85,14 @@
 
   (let* ((stream (binary-stream instance))
          (stream-size (binary-size instance))
+         (w-pointer (binary-w-pointer instance))
          (restream-size (the float (binary-restream-size instance)))
          (upgrade-size (floor (* (if (= size 0) stream-size size) restream-size)))
          (buffer (fast-io:make-octet-vector upgrade-size)))
     (declare (type fast-io:octet-vector stream buffer) (type (mod 67108864) stream-size upgrade-size) (type float restream-size))
-    
-    (loop for i fixnum from 0 below stream-size do (setf (aref buffer i) (aref stream i)))
+
+    (when (> w-pointer 0)
+      (loop for i fixnum from 0 below stream-size do (setf (aref buffer i) (aref stream i))))
 
     (setf (binary-stream instance) buffer)
     (setf (binary-size instance) (1- upgrade-size))))
