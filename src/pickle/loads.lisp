@@ -264,6 +264,7 @@
     (setf (gethash :stack env) (pop (gethash :meta-stack env)))
     (nreverse items)))
 
+(declaim (ftype (function (t) error) persistent-load) (inline persistent-load))
 (defun persistent-load (pid)
   (error 'unpickling-error :message "unsupported persistent id encountered"))
 
@@ -296,11 +297,14 @@
     (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
 
 (define-fast-op load-fast-op (stream)
+  (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+  
   (let ((proto 0)
         (stack nil)
         (meta-stack nil)
         (memo (make-hash-table :test 'equal))
         (framer (make-instance 'unframer :current-frame nil)))
+    (declare (type fixnum proto) (type list stack meta-stack) (type hash-table memo) (type unframer framer))
     
     (handler-case
         (loop for op-code fixnum = (aref (the (simple-array (unsigned-byte 8) *) (framer-read framer stream 1)) 0)
@@ -309,4 +313,3 @@
       (stop (condition)
         (return-from load-fast-op (stop-value condition))))
     (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
-

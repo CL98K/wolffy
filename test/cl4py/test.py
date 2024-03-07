@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import time
-from py2lisp import Py2Lisp
+from py2lisp import Lisp
 
-lisp = Py2Lisp("./lisp.core")
-lisp.mode = Py2Lisp.COMPILE_MODE
+lisp = Lisp("./lisp.core")
+lisp.mode = Lisp.COMPILE_MODE
 
 lisp.initialize()
 

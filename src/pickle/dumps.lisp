@@ -269,3 +269,26 @@
     (framer-end framer)
     (wo-io:binary-stream-memery-view stream)))
 
+;; (define-fast-op dump-fast-op (stream protocol fix-imports)
+;;   (let* ((fast 0)
+;;          (batchsize 1000)        
+;;          (protocol (if (= protocol 0) *default-protocol* (if (< protocol 0) *highest-protocol* protocol)))
+;;          (proto protocol)
+;;          (bin (if (>= protocol 1) t nil))
+;;          (fix-imports (if (and fix-imports (< protocol 3)) t nil))
+;;          (memo (make-hash-table :test 'equal))
+;;          (framer (make-instance 'framer :stream stream :current-frame nil)))
+
+;;     (declare (type fixnum fast batchsize protocol proto) (type boolean bin fix-imports) (type hash-table memo) (type framer framer))
+    
+;;     (if (> protocol *highest-protocol*) (error 'value-error :message (format nil "pickle protocol must be <= ~A" *highest-protocol*)))
+
+;;     (if (>= protocol 2)
+;;         (framer-write framer +proto+ (pack:pack "<B" protocol)))
+;;     (if (>= protocol 4)
+;;         (framer-start framer))
+
+;;     (_save env obj)
+;;     (framer-write framer +stop+)
+;;     (framer-end framer)))
+

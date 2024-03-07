@@ -157,55 +157,10 @@ class SharedMemory():
             start = index + length + 1
             
             yield pickle.loads(handle[index+1:start])
-            
-
-class LSPackage():
-    """LISP Package 对象"""
-    def __init__(self, env, pname):
-        self.env = env
-        self.pname = pname
-
-    def __getattr__(self, name):
-        def __call(syntax, *args, **kwargs):
-            if "block" in kwargs:
-                tag = kwargs["block"]
-                del kwargs["block"]
-            else:
-                tag = True
-            
-            iblock, (ipoint, limit) = SharedMemory.getBlock(self.env._Py2Lisp__sm, self.env._Py2Lisp__setFuture)
-            future = None if tag else Future(self.env._Py2Lisp__sm, ipoint)
-            if future: self.env._Py2Lisp__future[iblock] = future
-            
-            offset, size, _ = SharedMemory.write([args, kwargs], self.env._Py2Lisp__sm, ipoint)
-            self.env.eval(f"(pycall #'{self.pname}:{syntax} :offset {offset} :size {size} :ipoint {ipoint} :limit {limit})", Py2Lisp.E_MODE_BACKGROUND|Py2Lisp.E_MODE_BLOCK if tag else Py2Lisp.E_MODE_BACKGROUND|Py2Lisp.E_MODE_NONBLOCK)
-            return SharedMemory.read(self.env._Py2Lisp__sm, ipoint) if tag else future
-        
-        symbols = self.env.eval(f"(let ((col nil)) (do-external-symbols (s '{self.pname}) (push (symbol-name s) col)) col)", Py2Lisp.E_MODE_FOREGROUND)
-
-        for symbol in eval(symbols):
-            nsymbol = symbol.replace("-", "_").replace("*", "").replace("+", "").lower()
-            describe = self.env.eval(f"(describe '{self.pname}:{symbol})", self.E_MODE_FOREGROUND)
-
-            if "names a compiled function" in describe:
-                self.__dict__[nsymbol] = partial(__call, symbol)
-                self.__dict__[nsymbol].__doc__ = describe
-            elif "names a macro" in describe:
-                self.__dict__[nsymbol] = partial(__call, symbol)
-                self.__dict__[nsymbol].__doc__ = describe
-            elif "names a special variable" in describe:
-                tag = "Value: "
-                idx = describe.find(tag) + len(tag)
-                self.__dict__[nsymbol] = describe[idx:describe.find("\n", idx+1)]
-            elif "names a constant variable" in describe:
-                tag = "Value: "
-                idx = describe.find(tag) + len(tag)
-                self.__dict__[nsymbol] = describe[idx:describe.find("\n", idx+1)]
-
-        return self.__dict__[name]
 
 
 class Future():
+    """Future"""
     def __init__(self, space, offset):
         self.__space = space
         self.__offset = offset
@@ -241,9 +196,56 @@ class Future():
     def set_status(self, flag):
         self.__success = flag
         return True
-    
+            
 
-class Py2Lisp():
+class LSPackage():
+    """LISP Package 对象"""
+    def __init__(self, env, pname):
+        self.env = env
+        self.pname = pname
+
+    def __getattr__(self, name):
+        def __call(syntax, *args, **kwargs):
+            if "block" in kwargs:
+                tag = kwargs["block"]
+                del kwargs["block"]
+            else:
+                tag = True
+            
+            iblock, (ipoint, limit) = SharedMemory.getBlock(self.env._Lisp__sm, self.env._Lisp__setFuture)
+            future = None if tag else Future(self.env._Lisp__sm, ipoint)
+            if future: self.env._Lisp__future[iblock] = future
+            
+            offset, size, _ = SharedMemory.write([args, kwargs], self.env._Lisp__sm, ipoint)
+            self.env.eval(f"(pycall #'{self.pname}:{syntax} :offset {offset} :size {size} :ipoint {ipoint} :limit {limit})", Lisp.E_MODE_BACKGROUND|Lisp.E_MODE_BLOCK if tag else Lisp.E_MODE_BACKGROUND|Lisp.E_MODE_NONBLOCK)
+            return SharedMemory.read(self.env._Lisp__sm, ipoint) if tag else future
+        
+        symbols = self.env.eval(f"(let ((col nil)) (do-external-symbols (s '{self.pname}) (push (symbol-name s) col)) col)", Lisp.E_MODE_FOREGROUND)
+
+        for symbol in eval(symbols):
+            nsymbol = symbol.replace("-", "_").replace("*", "").replace("+", "").lower()
+            describe = self.env.eval(f"(describe '{self.pname}:{symbol})", self.E_MODE_FOREGROUND)
+
+            if "names a compiled function" in describe:
+                self.__dict__[nsymbol] = partial(__call, symbol)
+                self.__dict__[nsymbol].__doc__ = describe
+            elif "names a macro" in describe:
+                self.__dict__[nsymbol] = partial(__call, symbol)
+                self.__dict__[nsymbol].__doc__ = describe
+            elif "names a special variable" in describe:
+                tag = "Value: "
+                idx = describe.find(tag) + len(tag)
+                self.__dict__[nsymbol] = describe[idx:describe.find("\n", idx+1)]
+            elif "names a constant variable" in describe:
+                tag = "Value: "
+                idx = describe.find(tag) + len(tag)
+                self.__dict__[nsymbol] = describe[idx:describe.find("\n", idx+1)]
+
+        return self.__dict__[name]
+
+
+class Lisp():
+    """基于共享内存的 Python 调用 Lisp"""
     E_MODE_FOREGROUND = 1
     E_MODE_BACKGROUND = 2
     E_MODE_BLOCK = 10
@@ -315,7 +317,7 @@ class Py2Lisp():
         elif package and package != "NIL":
             self.__dict__[name] = LSPackage(self, symbol)
         else:
-            raise AttributeError(f"'Py2Lisp' object has no attribute '{name}'")
+            raise AttributeError(f"'Lisp' object has no attribute '{name}'")
 
         return self.__dict__[name]
         
@@ -465,7 +467,7 @@ class Py2Lisp():
         if not self.mode: raise EvalModeError("Set the evaluation mode first")
         
         while True:
-            code = input("py2lisp> ")
+            code = input("Lisp> ")
             if not code: continue
             if code.lower() == "quit": break
             if code.lower() == "exit": break
@@ -481,8 +483,8 @@ class Py2Lisp():
 
 
 if __name__== "__main__":
-    lisp = Py2Lisp("./lisp.core")
-    lisp.mode = Py2Lisp.COMPILE_MODE
+    lisp = Lisp("./lisp.core")
+    lisp.mode = Lisp.COMPILE_MODE
     
     lisp.initialize()
     lisp.repl()
