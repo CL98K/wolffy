@@ -251,7 +251,7 @@
   (signal 'stop :value (pop (gethash :stack env))))
 
 
-(declaim (ftype (function (t) boolean) decode-string) (inline decode-string))
+(declaim (ftype (function (simple-array) boolean) decode-string) (inline decode-string))
 (defun decode-string (value)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (ignore value))
   t)
@@ -296,7 +296,12 @@
     
     (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
 
-(define-fast-op load-fast-op (stream)
+(define-fast-op load-fast-op (stream) '(((gethash :proto env) . proto)
+                                        ((gethash :stack env) . stack)
+                                        ((gethash :meta-stack env) . meta-stack)
+                                        ((gethash :memo env) . memo)
+                                        ((gethash :framer env) . framer)
+                                        ((pop-mark env) . (let ((items stack)) (setf stack (pop meta-stack)) (nreverse items))))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
   
   (let ((proto 0)
@@ -313,3 +318,4 @@
       (stop (condition)
         (return-from load-fast-op (stop-value condition))))
     (error 'unpickling-error :message "Reached end of file before reading +STOP+ op code")))
+

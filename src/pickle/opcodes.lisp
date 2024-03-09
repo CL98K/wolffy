@@ -3,9 +3,20 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf *read-default-float-format* 'double-float)
   (setf *cond-exp* '(cond (t (error 'unpickling-error :message (format nil "Not implemented(~A)" op-code)))))
+  (setf *built-exp* nil)
+  
+  (defmacro transfer (name args body)
+    `(defun ,name ,args ,@body))
+
+  (set-macro-character #\@ (lambda (stream char)
+                             (declare (ignore char))
+                             (let* ((decorator (read stream nil))
+                                    (form (read stream nil)))
+                               (push (cdr form) *built-exp*)
+                               `(transfer ,(cadr form) ,(caddr form) ,(cdddr form)))))
 
   (defparameter *op-func* (make-hash-table))
-  
+
   (defun type-to-code (obj)
     (typecase obj
       (nil        1000)
@@ -28,20 +39,17 @@
       (funcall (the function (gethash op-code *op-func*)) env stream obj)
       (error 'unpickling-error :message (format nil "Not implemented(~A)" op-code))))
 
-(defmacro define-fast-op (name args &body body)
-  (let* ((cond-exp (sublis '(((gethash :proto env) . proto)
-                             ((gethash :stack env) . stack)
-                             ((gethash :meta-stack env) . meta-stack)
-                             ((gethash :memo env) . memo)
-                             ((gethash :framer env) . framer)
-                             ((pop-mark env) . (let ((items stack)) (setf stack (pop meta-stack)) (nreverse items))))
-                           *cond-exp* :test #'equal))
-         (nbody (sublis (acons '*cond-exp* cond-exp '()) body :test #'equal)))
+(defmacro define-fast-op (name args modify-item &body body)  
+  (let* ((modify-item (eval modify-item))
+         (built-exp (sublis modify-item *built-exp* :test #'equal))
+         (cond-exp (sublis modify-item *cond-exp* :test #'equal))
+         (nbody (sublis (acons '*built-exp* built-exp '()) body :test #'equal))
+         (nbody (sublis (acons '*cond-exp* cond-exp '()) nbody :test #'equal)))    
     `(defun ,name ,args ,@nbody)))
 
 (defmacro defop (name (&optional env stream obj) &body body)
-  (rplacd *cond-exp* (append `(((eq op-code ,name) ,@body)) (cdr *cond-exp*)))
-  
+  (rplacd *cond-exp* (append `(((eq op-code ,name) (block nil ,@body))) (cdr *cond-exp*)))
+ 
   (let ((e (or env (gensym)))
         (s (or stream (gensym)))
         (o (or obj (gensym))))
