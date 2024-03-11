@@ -266,6 +266,7 @@
 
 (declaim (ftype (function (t) error) persistent-load) (inline persistent-load))
 (defun persistent-load (pid)
+  (declare (ignore pid))
   (error 'unpickling-error :message "unsupported persistent id encountered"))
 
 (defun load (file &key (fix-imports t) (element-type "ascii") (fast nil))

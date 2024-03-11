@@ -44,7 +44,7 @@
          (built-exp (sublis modify-item *built-exp* :test #'equal))
          (cond-exp (sublis modify-item *cond-exp* :test #'equal))
          (nbody (sublis (acons '*built-exp* built-exp '()) body :test #'equal))
-         (nbody (sublis (acons '*cond-exp* cond-exp '()) nbody :test #'equal)))    
+         (nbody (sublis (acons '*cond-exp* cond-exp '()) nbody :test #'equal)))
     `(defun ,name ,args ,@nbody)))
 
 (defmacro defop (name (&optional env stream obj) &body body)
