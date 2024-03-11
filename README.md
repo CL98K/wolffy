@@ -12,7 +12,7 @@ CentOS Linux release 7.9.2009 (Core), 4 core, 8 threads, 32 GB memory, Python 3.
 | Test 100 times   | python-cPickle   | python-pickle   | wo-pickle(optimizing ....) |
 |:----------------:|:----------------:|:---------------:|:--------------------------:|
 |    load          |         0.35     |    6.79         |   2.1                     |
-|    dump          |         0.26     |    -            |   0.80                    |
+|    dump          |         0.26     |    -            |   0.78                    |
 
 
 ***highest-protocol***  
@@ -22,7 +22,7 @@ This is the highest protocol number we know how to read.
 The protocol we write by default. May be less than HIGHEST_PROTOCOL. Only bump this if the oldest still supported version of Python already includes it.  
 Currently, most data types of Python are supported (excluding Python class objects, etc.)
 
-**load** *(file &key (fix-imports t) (element-type "ascii")*  
+**load** *(file &key (fix-imports t) (element-type "ascii") (:fast nil)*  
 Deserialize Python data from a file.
 ```
 CL-USER> (wo-pkl:load "D:/worker/Lisp/test/xx.plk")
@@ -30,7 +30,7 @@ CL-USER> (wo-pkl:load "D:/worker/Lisp/test/xx.plk")
 CL-USER> 
 ```
 
-**loads** *(stream &key (fix-imports t) (element-type "ascii")*  
+**loads** *(stream &key (fix-imports t) (element-type "ascii") (:fast nil)*  
 Deserialize Python data from binary streams.
 ```
 CL-USER> (setf s (wo-io:make-binary-stream :initial-data #(128 4 149 71 0 0 0 0 0 0 0 125 148 40 140 1 97 148 75 1 140 1 98 148 93 148 40 75 1 75 2 75 3 101 140 1 99 148 71 63 240 0 0 0 0 0 0 140 1 100 148 140 13 97 115 100 97 115 100 97 115 100 97 115 100 97 148 140 1 101 148 140 6 228 184 173 229 155 189 148 117 46)))
@@ -47,10 +47,10 @@ CL-USER> (kit:printf (wo-pkl:loads s))
 2
 ```
 
-**dump** *(obj file &key protocol (fix-imports t)*  
+**dump** *(obj file &key (protocol 0) (fix-imports t) (:fast nil)*  
 Serialize the LISP data structure and output the results to a file.
 
-**dumps** *(obj &key (stream (wo-io:make-binary-stream)) protocol (fix-imports t)*  
+**dumps** *(obj &key (protocol 0) (fix-imports t) (:fast nil)*  
 Serialize the LISP data structure.
 ```
 CL-USER> (wo-pkl:dumps 1231111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111)
