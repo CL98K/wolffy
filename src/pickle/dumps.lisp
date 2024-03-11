@@ -11,26 +11,28 @@
       (framer-write (gethash :framer env) (if obj +ture+ +false+))))
 
 (defop +lsp-int+ (env nil obj)
-  (when (gethash :bin env)
-    (if (>= obj 0)
-        (cond ((<= obj #xff) (framer-write (gethash :framer env) +binint1+ (pack:pack "<B" obj)) (return))
-              ((<= obj #xffff) (framer-write (gethash :framer env) +binint2+ (pack:pack "<H" obj)) (return))))
+  (let ((xobj obj))
+    (declare (type fixnum xobj))
+    (when (gethash :bin env)
+      (if (>= xobj 0)
+          (cond ((<= xobj #xff) (framer-write (gethash :framer env) +binint1+ (pack:pack "<B" obj)) (return))
+                ((<= xobj #xffff) (framer-write (gethash :framer env) +binint2+ (pack:pack "<H" obj)) (return))))
 
-    (when (and (>= obj #x-80000000) (<= obj #x7fffffff))
-      (framer-write (gethash :framer env) +binint+ (pack:pack "<i" obj))
-      (return)))
+      (when (and (>= xobj #x-80000000) (<= xobj #x7fffffff))
+        (framer-write (gethash :framer env) +binint+ (pack:pack "<i" obj))
+        (return)))
 
-  (when (>= (the fixnum (gethash :proto env)) 2)
-    (let* ((encoded (encode-long obj))
-           (n (array-total-size encoded)))
-      (if (< n 256)
-          (framer-write (gethash :framer env) +long1+ (pack:pack "<B" n) encoded)
-          (framer-write (gethash :framer env) +long4+ (pack:pack "<i" n) encoded))
-      (return)))
-
-  (if (and (>= obj #x-80000000) (<= obj #x7fffffff))
-      (framer-write (gethash :framer env) +int+ (sb-ext:string-to-octets (write-to-string obj)) +newline+)
-      (framer-write (gethash :framer env) +long+ (sb-ext:string-to-octets (write-to-string obj)) (char-code #\L) +newline+)))
+    (when (>= (the fixnum (gethash :proto env)) 2)
+      (let* ((encoded (encode-long obj))
+             (n (array-total-size encoded)))
+        (if (< n 256)
+            (framer-write (gethash :framer env) +long1+ (pack:pack "<B" n) encoded)
+            (framer-write (gethash :framer env) +long4+ (pack:pack "<i" n) encoded))
+        (return)))
+    
+    (if (and (>= xobj #x-80000000) (<= xobj #x7fffffff))
+        (framer-write (gethash :framer env) +int+ (sb-ext:string-to-octets (write-to-string obj)) +newline+)
+        (framer-write (gethash :framer env) +long+ (sb-ext:string-to-octets (write-to-string obj)) (char-code #\L) +newline+))))
 
 (defop +lsp-float+ (env nil obj)
   (if (gethash :bin env)
@@ -170,7 +172,7 @@
         ((gethash :bin env) (if (< (the fixnum obj) 256)
                    (list +binput+ (pack:pack "<B" obj))
                    (list +long-binput+ (pack:pack "<I" obj))))
-        (t (print obj) (list +put+ (sb-ext:string-to-octets obj) +newline+))))
+        (t (list +put+ (sb-ext:string-to-octets obj) +newline+))))
 
 @form
 (defun _get (env obj)
@@ -188,8 +190,7 @@
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type hash-table env) (type t obj) (type boolean save-persistent-id))
 
-  (let* ((stream (slot-value (gethash :framer env) 'stream))
-         (pid (_persistent_id obj)))
+  (let* ((pid (_persistent_id obj)))
 
     (framer-commit (gethash :framer env))
     (when (and pid save-persistent-id)
@@ -202,7 +203,7 @@
 
     (let ((op-code (type-to-code obj)))
       (declare (type fixnum op-code))
-      (perform-op op-code env stream obj))))
+      (perform-op op-code env (slot-value (gethash :framer env) 'stream) obj))))
 
 @form
 (defun _persistent_id (obj)
@@ -260,7 +261,7 @@
                                                           ((gethash :fix-imports env) . fix-imports)
                                                           ((gethash :memo env) . memo)
                                                           ((gethash :framer env) . framer)
-                                                          ((perform-op op-code env stream obj) . *cond-exp*))
+                                                          ((perform-op op-code env (slot-value (gethash :framer env) 'stream) obj) . *cond-exp*))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (type fixnum protocol) (type boolean fix-imports))
   
   (let* ((fast 0)
@@ -272,7 +273,7 @@
          (memo (make-hash-table :test 'equal))
          (stream (wo-io:make-binary-stream))
          (framer (make-instance 'framer :stream stream :current-frame nil)))
-    (declare (type fixnum fast batchsize protocol proto) (type boolean bin) (type hash-table memo) (type wo-io:binary-stream stream) (type framer framer))
+    (declare (type fixnum fast batchsize protocol proto) (type boolean bin) (type hash-table memo) (type wo-io:binary-stream stream) (type framer framer) (ignore fix-imports))
     
     (if (> protocol *highest-protocol*) (error 'value-error :message (format nil "pickle protocol must be <= ~A" *highest-protocol*)))
     (if (>= protocol 2)
