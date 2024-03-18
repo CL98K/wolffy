@@ -57,13 +57,14 @@
   
   (with-slots (stream current-frame frame-size-min frame-size-target) instance
     (declare (type fixnum frame-size-min frame-size-target))
-    (when  (and current-frame (or (>= (the fixnum (wo-io:binary-stream-file-position current-frame)) frame-size-target) force))
+    
+    (when (and current-frame (or (>= (the fixnum (wo-io:binary-stream-file-position current-frame)) frame-size-target) force))
       (multiple-value-bind (data size) (wo-io:binary-stream-memery-view current-frame)
         (declare (type simple-array data) (type fixnum size))
-         (when (>= size frame-size-min)
+        (when (>= size frame-size-min)
           (wo-io:binary-stream-write stream +frame+)
           (wo-io:binary-stream-writes stream (pack:pack "<Q" size)))
-        (wo-io:binary-stream-writes stream data)
+        (wo-io:binary-stream-writes stream data :end size)
         (setf current-frame (wo-io:make-binary-stream))))))
 
 (defmethod framer-write ((instance framer) &rest datas)

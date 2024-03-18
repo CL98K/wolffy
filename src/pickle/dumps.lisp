@@ -15,7 +15,7 @@
     (declare (type fixnum xobj))
     (when (gethash :bin env)
       (if (>= xobj 0)
-          (cond ((<= xobj #xff) (framer-write (gethash :framer env) +binint1+ (pack:pack "<B" obj)) (return))
+          (cond ((<= xobj #xff) (framer-write (gethash :framer env) +binint1+ obj) (return))
                 ((<= xobj #xffff) (framer-write (gethash :framer env) +binint2+ (pack:pack "<H" obj)) (return))))
 
       (when (and (>= xobj #x-80000000) (<= xobj #x7fffffff))
@@ -26,7 +26,7 @@
       (let* ((encoded (encode-long obj))
              (n (array-total-size encoded)))
         (if (< n 256)
-            (framer-write (gethash :framer env) +long1+ (pack:pack "<B" n) encoded)
+            (framer-write (gethash :framer env) +long1+ n encoded)
             (framer-write (gethash :framer env) +long4+ (pack:pack "<i" n) encoded))
         (return)))
     
@@ -245,14 +245,14 @@
     (setf (gethash :batchsize env) 1000)
     
     (if (>= protocol 2)
-        (framer-write framer +proto+ (pack:pack "<B" protocol)))
+        (framer-write framer +proto+ protocol))
     (if (>= protocol 4)
         (framer-start framer))
     
     (_save env obj)
     (framer-write framer +stop+)
     (framer-end framer)
-    (wo-io:binary-stream-memery-view stream)))
+    (wo-io:binary-stream-memery-view stream :show t)))
 
 (define-fast-op dump-fast-op (obj protocol fix-imports) '(((gethash :fast env) . fast)
                                                           ((gethash :batchsize env) . batchsize)
@@ -273,11 +273,11 @@
          (memo (make-hash-table :test 'equal))
          (stream (wo-io:make-binary-stream))
          (framer (make-instance 'framer :stream stream :current-frame nil)))
-    (declare (type fixnum fast batchsize protocol proto) (type boolean bin) (type hash-table memo) (type wo-io:binary-stream stream) (type framer framer) (ignore fix-imports))
+    (declare (type fixnum fast batchsize proto) (type (mod 255) protocol) (type boolean bin) (type hash-table memo) (type wo-io:binary-stream stream) (type framer framer) (ignore fix-imports))
     
     (if (> protocol *highest-protocol*) (error 'value-error :message (format nil "pickle protocol must be <= ~A" *highest-protocol*)))
     (if (>= protocol 2)
-        (framer-write framer +proto+ (pack:pack "<B" protocol)))
+        (framer-write framer +proto+ protocol))
     (if (>= protocol 4)
         (framer-start framer))
 
@@ -285,5 +285,4 @@
       (_save (make-hash-table) obj)
       (framer-write framer +stop+)
       (framer-end framer)
-      (wo-io:binary-stream-memery-view stream))))
-
+      (wo-io:binary-stream-memery-view stream :show t))))

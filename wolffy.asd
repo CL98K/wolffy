@@ -1,4 +1,4 @@
-(defsystem :wolffy
+(defsystem #:wolffy
   :description "wolffy"
   :version "0.0.1"
   :author "CL98K <917599580@QQ.COM>"
@@ -20,12 +20,12 @@
                                            (:file "dumps")))
                              (:file "package")))))
 
-(defsystem :wolffy/test
+(defsystem #:wolffy/test
   :description "wolffy test"
   :version "1.0.0"
   :author "CL98K <917599580@QQ.COM>"
   :licence "MIT"
-  :depends-on (:wolffy)
+  :depends-on (#:wolffy)
   :components ((:module "test"
                 :components ((:file "io-test")
                              (:file "pickle-test")))))

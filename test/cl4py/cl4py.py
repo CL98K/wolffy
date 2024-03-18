@@ -264,11 +264,16 @@ class Lisp():
                  "!READER-IMPOSSIBLE-NUMBER-ERROR": ZeroDivisionError,
                  "!UNBOUND-VARIABLE":  NameError,}
     
-    def __init__(self, core=None):
+    def __init__(self, core=None, parallel=8):
         """core: image 文件路径"""
         if not os.path.exists(core): raise CoreNotExist(f"{repr(core)} not exist!")
         
-        self.__sm, self.__sm_file = SharedMemory.namedAlloc(65536 * 1, 8) #创建交互空间
+        self.__max_space = 65536 * 1
+        self.__block = 1024 * 8
+        if (parallel * self.__block) > self.__max_space:
+            parallel = int(self.__max_space / self.__block)
+        
+        self.__sm, self.__sm_file = SharedMemory.namedAlloc(self.__max_space, parallel) #创建交互空间
         self.__lisp = subprocess.Popen(core, shell=False, bufsize=-1, stdin=subprocess.PIPE, stdout=subprocess.PIPE) #Lisp Core 对象
         self.__mode = None #执行模式
         self.__io_mode = True #阻塞模式

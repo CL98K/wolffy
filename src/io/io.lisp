@@ -19,16 +19,15 @@
 (defmethod print-object ((object binary) stream)
   (format t "#<IO:BINARY-STREAM {~A}" (sb-kernel:get-lisp-obj-address object)))
 
-(defun make-binary-stream (&key (initial-data #()) (initial-size 128) (restream-size 1.5) (upgrade-p t))
+(defun make-binary-stream (&key (initial-data #() initial-data-p) (initial-size 128) (restream-size 1.5) (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type (or simple-vector fast-io:octet-vector) initial-data) (type fixnum initial-size) (type float restream-size) (type boolean upgrade-p))
   
   (let* ((instance nil)
-         (size (array-total-size initial-data))
-         (initial-size (if (> size 0) size initial-size))
+         (initial-size (if initial-data-p (array-total-size initial-data) initial-size))
          (stream (fast-io:make-octet-vector initial-size)))
     (setf instance (make-binary :stream stream :size initial-size :restream-size restream-size))
-    (if (> size 0) (binary-stream-writes instance (coerce initial-data 'fast-io:octet-vector) :upgrade-p upgrade-p))
+    (if initial-data-p (binary-stream-writes instance (coerce initial-data 'fast-io:octet-vector) :upgrade-p upgrade-p))
     instance))
 
 (defun binary-stream-close (instance)
@@ -52,17 +51,17 @@
           (binary-s-pointer instance)
           (binary-separator instance)))
 
-(defun binary-stream-memery-view (instance)
+(defun binary-stream-memery-view (instance &key (show nil))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary instance))
+           (type binary instance) (type boolean show))
   
   (let* ((stream (binary-stream instance))
-         (w-pointer (binary-w-pointer instance))
-         (buffer (fast-io:make-octet-vector w-pointer)))
-    (declare (type fast-io:octet-vector stream buffer) (type (mod 67108864) w-pointer))
+         (w-pointer (binary-w-pointer instance)))
+    (declare (type fast-io:octet-vector stream) (type (mod 67108864) w-pointer))
 
-    (fast-io:fast-read-sequence buffer (fast-io:make-input-buffer :vector stream))
-    (values buffer w-pointer)))
+    (if show
+        (values (loop for i from 0 below w-pointer collect (aref stream i)) w-pointer)
+        (values stream w-pointer))))
 
 (defun binary-stream-file-position (instance &optional position-spec)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
@@ -113,25 +112,26 @@
     (setf (aref stream w-pointer) integer)
     (incf (binary-w-pointer instance))))
 
-(defun binary-stream-writes (instance integers &key (upgrade-p t))
+(defun binary-stream-writes (instance integers &key (start 0) (end 0 end-p) (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type binary instance) (type fast-io:octet-vector integers) (type boolean upgrade-p))
+           (type binary instance) (type fast-io:octet-vector integers) (type fixnum start end) (type boolean upgrade-p))
   
   (let* ((stream (binary-stream instance))
          (stream-size (binary-size instance))
          (w-pointer (binary-w-pointer instance))
-         (data-size (array-total-size integers)))
+         (data-size (if end-p end (array-total-size integers))))
     (declare (type fast-io:octet-vector stream) (type (mod 67108864) data-size stream-size w-pointer))
     
     (when (and upgrade-p (<= (- (- stream-size w-pointer) data-size) 0))
       (binary-stream-upgrade-space instance (+ stream-size data-size))
       (setf stream (binary-stream instance)))
-    
-    (loop for integer fixnum across integers
-          for i fixnum from w-pointer
+
+    (loop for i fixnum from start below data-size
+          for j fixnum from w-pointer
+          for integer fixnum = (aref integers i)
           do
-          (setf (aref stream i) integer)
-          (if (eq integer +newline+) (push i (binary-separator instance))))
+          (setf (aref stream j) integer)
+          (if (eq integer +newline+) (push j (binary-separator instance))))
     
     (incf (binary-w-pointer instance) data-size)))
 
