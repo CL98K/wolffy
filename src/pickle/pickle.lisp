@@ -60,13 +60,14 @@
     
     (when (and current-frame (or (>= (the fixnum (wo-io:binary-stream-file-position current-frame)) frame-size-target) force))
       (multiple-value-bind (data size) (wo-io:binary-stream-memery-view current-frame)
-        (declare (type simple-array data) (type fixnum size))
+        (declare (type simple-array data) (type fixnum size))    
         (when (>= size frame-size-min)
           (wo-io:binary-stream-write stream +frame+)
           (wo-io:binary-stream-writes stream (pack:pack "<Q" size)))
         (wo-io:binary-stream-writes stream data :end size)
         (setf current-frame (wo-io:make-binary-stream))))))
 
+(declaim (inline framer-write))
 (defmethod framer-write ((instance framer) &rest datas)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type sequence datas))
@@ -91,6 +92,7 @@
               (wo-io:binary-stream-writes stream data)))
     (wo-io:binary-stream-writes stream payload)))
 
+(declaim (inline framer-read))
 (defmethod framer-read ((instance unframer) stream n)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type wo-io:binary-stream stream) (type fixnum n))

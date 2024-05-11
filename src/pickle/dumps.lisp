@@ -47,7 +47,7 @@
           (declare (type simple-array encoded) (type fixnum n))
           (cond
             ((and (<= n #xff) (>= (the fixnum (gethash :proto env)) 4))
-             (framer-write (gethash :framer env) +short-binunicode+ (pack:pack "<B" n) encoded))
+             (framer-write (gethash :framer env) +short-binunicode+ n encoded))
             ((and (> n #xffffffff) (>= (the fixnum (gethash :proto env)) 4))
              (write-large-bytes (gethash :framer env) (list +binunicode8+ (pack:pack "<Q" n)) encoded))
             ((>= n (the fixnum (slot-value (gethash :framer env) 'frame-size-target)))
@@ -155,7 +155,7 @@
            (type hash-table env))
   
   (if (/= (the fixnum (gethash :fast env)) 0) (return-from _memoize))
-  
+
   (let ((id (sb-kernel:get-lisp-obj-address obj))
         (idx (hash-table-count (gethash :memo env))))
     (declare (type fixnum id idx))
@@ -166,36 +166,36 @@
 @form
 (defun _put (env obj)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type hash-table env) (type t obj))
+           (type hash-table env))
   
   (cond ((>= (the fixnum (gethash :proto env)) 4) +memoize+)
         ((gethash :bin env) (if (< (the fixnum obj) 256)
-                   (list +binput+ (pack:pack "<B" obj))
-                   (list +long-binput+ (pack:pack "<I" obj))))
+                                (list +binput+ obj)
+                                (list +long-binput+ (pack:pack "<I" obj))))
         (t (list +put+ (sb-ext:string-to-octets obj) +newline+))))
 
 @form
 (defun _get (env obj)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type hash-table env) (type t obj))
-  
+
   (if (gethash :bin env)
       (if (< (the fixnum obj) 256)
-          (list +binget+ (pack:pack "<B" obj))
+          (list +binget+ obj)
           (list +long-binget+ (pack:pack "<I" obj)))
       (list +get+ (sb-ext:string-to-octets obj) +newline+)))
 
 @form
 (defun _save (env obj &key (save-persistent-id t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type hash-table env) (type t obj) (type boolean save-persistent-id))
-
+           (type hash-table env) (type boolean save-persistent-id))
+  
   (let* ((pid (_persistent_id obj)))
 
     (framer-commit (gethash :framer env))
     (when (and pid save-persistent-id)
       (_save_pers pid))
-
+    
     (let ((x (gethash (the fixnum (sb-kernel:get-lisp-obj-address obj)) (gethash :memo env))))
       (when x
         (framer-write (gethash :framer env) (_get env (aref (the simple-vector x) 0)))
@@ -270,7 +270,7 @@
          (proto protocol)
          (bin (if (>= protocol 1) t nil))
          (fix-imports (if (and fix-imports (< protocol 3)) t nil))
-         (memo (make-hash-table :test 'equal))
+         (memo #{})
          (stream (wo-io:make-binary-stream))
          (framer (make-instance 'framer :stream stream :current-frame nil)))
     (declare (type fixnum fast batchsize proto) (type (mod 255) protocol) (type boolean bin) (type hash-table memo) (type wo-io:binary-stream stream) (type framer framer) (ignore fix-imports))
@@ -282,7 +282,9 @@
         (framer-start framer))
 
     (labels *built-exp*
-      (_save (make-hash-table) obj)
-      (framer-write framer +stop+)
-      (framer-end framer)
-      (wo-io:binary-stream-memery-view stream :show t))))
+      (_save #{} obj)
+      ;; (framer-write framer +stop+)
+      ;; (framer-end framer)
+      ;; (wo-io:binary-stream-memery-view stream :show t)
+      )))
+

@@ -19,7 +19,7 @@
 (defmethod print-object ((object binary) stream)
   (format t "#<IO:BINARY-STREAM {~A}" (sb-kernel:get-lisp-obj-address object)))
 
-(defun make-binary-stream (&key (initial-data #() initial-data-p) (initial-size 128) (restream-size 1.5) (upgrade-p t))
+(defun make-binary-stream (&key (initial-data #() initial-data-p) (initial-size 64) (restream-size 1.5) (upgrade-p t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type (or simple-vector fast-io:octet-vector) initial-data) (type fixnum initial-size) (type float restream-size) (type boolean upgrade-p))
   
@@ -119,10 +119,11 @@
   (let* ((stream (binary-stream instance))
          (stream-size (binary-size instance))
          (w-pointer (binary-w-pointer instance))
+         (sep (binary-separator instance))
          (data-size (if end-p end (array-total-size integers))))
-    (declare (type fast-io:octet-vector stream) (type (mod 67108864) data-size stream-size w-pointer))
+    (declare (type fast-io:octet-vector stream) (type (mod 67108864) data-size stream-size w-pointer) (type list sep))
     
-    (when (and upgrade-p (<= (- (- stream-size w-pointer) data-size) 0))
+    (when (and upgrade-p (< (- (- stream-size w-pointer) data-size) 0))
       (binary-stream-upgrade-space instance (+ stream-size data-size))
       (setf stream (binary-stream instance)))
 
@@ -131,7 +132,7 @@
           for integer fixnum = (aref integers i)
           do
           (setf (aref stream j) integer)
-          (if (eq integer +newline+) (push j (binary-separator instance))))
+          (if (eq integer +newline+) (push j sep)))
     
     (incf (binary-w-pointer instance) data-size)))
 
@@ -216,9 +217,8 @@
   (binary-stream-read-into instance buffer))
 
 (defun file-stream-to-binary-stream (stream)
-  (declare (type sb-sys:fd-stream stream))
+  (declare (inline sb-sys:read-n-bytes) (type sb-sys:fd-stream stream))
   (let* ((size (file-length stream))
          (buffer (fast-io:make-octet-vector size)))
     (sb-sys:read-n-bytes stream buffer 0 size)
     (make-binary-stream :initial-data buffer)))
-

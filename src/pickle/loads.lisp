@@ -86,14 +86,14 @@
 (defop +binunicode+ (env stream)
   (let* ((framer (gethash :framer env))
          (n (first (pack:unpack "<I" (framer-read framer stream 4)))))
-    (declare (type fixnum n))
+    (declare (inline sb-ext:octets-to-string) (type fixnum n))
     (if (> n +sys-maxsize+) (error 'unpickling-error :message "BINUNICODE exceeds system's maximum size"))
     (push (sb-ext:octets-to-string (framer-read framer stream n)) (gethash :stack env))))
 
 (defop +binunicode8+ (env stream)
   (let* ((framer (gethash :framer env))
          (n (first (pack:unpack "<Q" (framer-read framer stream 8)))))
-    (declare (type fixnum n))
+    (declare (inline sb-ext:octets-to-string) (type fixnum n))
     (if (> n +sys-maxsize+) (error 'unpickling-error :message "BINUNICODE8 exceeds system's maximum size"))
     (push (sb-ext:octets-to-string (framer-read framer stream n)) (gethash :stack env))))
 
@@ -125,6 +125,7 @@
 
 (defop +short-binunicode+ (env stream)
   (let ((framer (gethash :framer env)))
+    (declare (inline sb-ext:octets-to-string))
     (push (sb-ext:octets-to-string (framer-read framer stream (aref (the (simple-array (unsigned-byte 8) *) (framer-read framer stream 1)) 0))) (gethash :stack env))))
 
 (defop +tuple+ (env)
