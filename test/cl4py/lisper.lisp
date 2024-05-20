@@ -43,21 +43,24 @@
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type system-area-pointer addr) (type fixnum offset limit))
 
-  (multiple-value-bind (val size) (wo-pkl:dumps data)
-    (let ((i (1+ offset)))
-      (declare (type fixnum i))
-      (loop for v across (sb-ext:string-to-octets (write-to-string size) :external-format :utf-8)
-            do
-            (setf (cffi:mem-aref addr :unsigned-char i) v)
-            (incf i))
+  (print (wo-pkl:dumps data))
+  
+  ;; (multiple-value-bind (val size) (wo-pkl:dumps data)
+  ;;   (let ((i (1+ offset)))
+  ;;     (declare (type fixnum i))
+  ;;     (loop for v across (sb-ext:string-to-octets (write-to-string size) :external-format :utf-8)
+  ;;           do
+  ;;           (setf (cffi:mem-aref addr :unsigned-char i) v)
+  ;;           (incf i))
       
-      (setf (cffi:mem-aref addr :unsigned-char i) 0)
+  ;;     (setf (cffi:mem-aref addr :unsigned-char i) 0)
       
-      (loop for v across val
-            do
-            (incf i)
-            (setf (cffi:mem-aref addr :unsigned-char i) v))
-      (setf (cffi:mem-aref addr :unsigned-char offset) 48))))
+  ;;     (loop for v across val
+  ;;           do
+  ;;           (incf i)
+  ;;           (setf (cffi:mem-aref addr :unsigned-char i) v))
+  ;;     (setf (cffi:mem-aref addr :unsigned-char offset) 48)))
+  )
 
 (defun pycall (func &key (offset 0) (size 0) (ipoint 0) (limit 0))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
@@ -68,16 +71,19 @@
     
     (destructuring-bind (args kwargs) (%read-data addr (+ ipoint offset) size)
       (write-data addr ipoint limit (apply func args))))
+  
   (return-from pycall nil))
 
 ;;;测试接口
 (defun test-interface (&rest args) args)
 
 ;;;测试服务
-;; (defun main ()
-;;   (open-space "/mnt/d/Worker/Lisp/tools/wolffy/test/py2lisp/_smp/16052.sm")
-;;   (time (loop repeat 10000 do (pycall #'test-interface :offset 2 :size 29)))  
-;;   (close-space))
+(defun main ()
+  (open-space "/mnt/d/Worker/Lisp/tools/wolffy/test/cl4py/_smp/1231.sm")
+  (pycall #'test-interface :offset 5 :size 3525 :ipoint 0 :limit 8191)
+  ;; (time (loop repeat 10000 do (pycall #'test-interface :offset 5 :size 3525 :ipoint 0 :limit 8191)))
+  
+  (close-space))
 
-;; (main)
-;; (quit)
+(main)
+(quit)

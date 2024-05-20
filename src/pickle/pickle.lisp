@@ -41,39 +41,38 @@
 (defclass unframer ()
   ((current-frame :initarg :current-frame :accessor current-frame-of)))
 
-(defmethod framer-start ((instance framer))
-  (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream)))
+(defmethod framer-start ((instance framer) &key (initial-size 0))
+  (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream :initial-size initial-size)))
 
 (defmethod framer-end ((instance framer))
   (let ((current-frame (slot-value instance 'current-frame)))
     (if (and current-frame (wo-io:binary-stream-file-position current-frame))
-        (progn
-          (framer-commit instance :force t)
-          (setf (slot-value instance 'current-frame) nil)))))
+        (framer-commit instance :force t :make nil))))
 
-(defmethod framer-commit ((instance framer) &key force)
+(declaim (inline framer-commit))
+(defmethod framer-commit ((instance framer) &key force (make t))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type boolean force))
+           (type boolean force make))
   
   (with-slots (stream current-frame frame-size-min frame-size-target) instance
     (declare (type fixnum frame-size-min frame-size-target))
-    
+
     (when (and current-frame (or (>= (the fixnum (wo-io:binary-stream-file-position current-frame)) frame-size-target) force))
       (multiple-value-bind (data size) (wo-io:binary-stream-memery-view current-frame)
-        (declare (type simple-array data) (type fixnum size))    
+        (declare (type simple-array data) (type fixnum size))
         (when (>= size frame-size-min)
           (wo-io:binary-stream-write stream +frame+)
           (wo-io:binary-stream-writes stream (pack:pack "<Q" size)))
         (wo-io:binary-stream-writes stream data :end size)
-        (setf current-frame (wo-io:make-binary-stream))))))
+        (if make (setf current-frame (wo-io:make-binary-stream)))))))
 
 (declaim (inline framer-write))
 (defmethod framer-write ((instance framer) &rest datas)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
            (type sequence datas))
-  
+
   (let* ((current-frame (slot-value instance 'current-frame))
-         (stream (if current-frame current-frame (slot-value instance 'stream))))
+         (stream (if current-frame current-frame (slot-value instance 'stream))))    
     (loop for data in datas
           do
           (if (typep data '(mod 255))
@@ -149,7 +148,7 @@
         (buffer (make-array frame-size :element-type '(unsigned-byte 8))))
     (if (and current-frame (wo-io:binary-stream-read current-frame))
         (error 'unpickling-error :message "beginning of a new frame before end of current frame"))
-
-    (wo-io:binary-stream-read-sequence stream buffer)
-    (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream :initial-data buffer))))
+        
+    (wo-io:binary-stream-read-sequence stream buffer)    
+    (setf (slot-value instance 'current-frame) (wo-io:make-binary-stream :initial-data buffer :initial-size frame-size :reuse-p t))))
 

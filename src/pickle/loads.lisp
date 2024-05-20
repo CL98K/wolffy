@@ -1,6 +1,6 @@
 (in-package #:pickle)
 
-(declaim (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+(declaim (inline sb-ext:octets-to-string) (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
 
 (defop +proto+ (env stream)
   (let ((proto (aref (the (simple-array (unsigned-byte 8) *) (framer-read (gethash :framer env) stream 1)) 0)))
@@ -86,14 +86,14 @@
 (defop +binunicode+ (env stream)
   (let* ((framer (gethash :framer env))
          (n (first (pack:unpack "<I" (framer-read framer stream 4)))))
-    (declare (inline sb-ext:octets-to-string) (type fixnum n))
+    (declare (type fixnum n))
     (if (> n +sys-maxsize+) (error 'unpickling-error :message "BINUNICODE exceeds system's maximum size"))
     (push (sb-ext:octets-to-string (framer-read framer stream n)) (gethash :stack env))))
 
 (defop +binunicode8+ (env stream)
   (let* ((framer (gethash :framer env))
          (n (first (pack:unpack "<Q" (framer-read framer stream 8)))))
-    (declare (inline sb-ext:octets-to-string) (type fixnum n))
+    (declare (type fixnum n))
     (if (> n +sys-maxsize+) (error 'unpickling-error :message "BINUNICODE8 exceeds system's maximum size"))
     (push (sb-ext:octets-to-string (framer-read framer stream n)) (gethash :stack env))))
 
@@ -125,7 +125,6 @@
 
 (defop +short-binunicode+ (env stream)
   (let ((framer (gethash :framer env)))
-    (declare (inline sb-ext:octets-to-string))
     (push (sb-ext:octets-to-string (framer-read framer stream (aref (the (simple-array (unsigned-byte 8) *) (framer-read framer stream 1)) 0))) (gethash :stack env))))
 
 (defop +tuple+ (env)
@@ -278,14 +277,17 @@
 
 (defun loads (stream &key (fix-imports t) (element-type "ascii") (fast nil))
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)) (type boolean fast) (ignore fix-imports element-type))
-
+  
+  (unless (typep stream 'wo-io:binary-stream)
+    (setf stream (wo-io:make-binary-stream :initial-data stream)))
+ 
   (when fast (return-from loads (load-fast-op stream)))
   
   (let ((env (make-hash-table :test 'eq)))
     (setf (gethash :proto env) 0)
     (setf (gethash :stack env) nil)
     (setf (gethash :meta-stack env) nil)
-    (setf (gethash :memo env) (make-hash-table :test 'equal))
+    (setf (gethash :memo env) (make-hash-table :test 'eq))
     (setf (gethash :framer env) (make-instance 'unframer :current-frame nil))
     
     (handler-case
@@ -309,7 +311,7 @@
   (let ((proto 0)
         (stack nil)
         (meta-stack nil)
-        (memo (make-hash-table :test 'equal))
+        (memo (make-hash-table :test 'eq))
         (framer (make-instance 'unframer :current-frame nil)))
     (declare (type fixnum proto) (type list stack meta-stack) (type hash-table memo) (type unframer framer))
     

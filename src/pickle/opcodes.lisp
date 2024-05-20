@@ -30,10 +30,10 @@
       (symbol     1070)
       (t          2000))))
 
-(declaim (ftype (function (fixnum hash-table wo-io:binary-stream t) t) perform-op) (inline perform-op))
+(declaim (ftype (function (fixnum hash-table t t) t) perform-op) (inline perform-op))
 (defun perform-op (op-code env stream obj)
   (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3))
-           (type fixnum op-code) (type hash-table env) (type wo-io:binary-stream stream) (type t obj))
+           (type fixnum op-code) (type hash-table env) (type t stream) (type t obj))
 
   (if (gethash op-code *op-func*)
       (funcall (the function (gethash op-code *op-func*)) env stream obj)
@@ -156,6 +156,6 @@
   (add-op +lsp-list+         (type-to-code (list 1))  "")
   (add-op +lsp-array+        (type-to-code (make-array 0)) "")
   (add-op +lsp-hash-table+   (type-to-code (make-hash-table)) "")
-  (add-op +lsp-symbol+       (type-to-code #'car) "")
+  (add-op +lsp-symbol+       (type-to-code :foo) "")
   )
 

@@ -2,19 +2,20 @@
 import time
 from cl4py import Lisp
 
-lisp = Lisp("./lisp.core")
-lisp.mode = Lisp.COMPILE_MODE
 
-lisp.initialize()
+with open("./_smp/1231.sm", "rb") as fp:
+    print([x for x in fp.read(20)])
+    
+with open("./_smp/1231_X.sm", "rb") as fp:
+    print([x for x in fp.read(20)])
+    
 
-stime = time.time()
+# lisp = Lisp("./lisp.core", parallel=1)
+# lisp.mode = Lisp.COMPILE_MODE
 
-data = {'_root': {'premise': '1'}, 'FLIGHT_DYNAMICS': {'PLAN_ARR_TIME_CUR': '', 'ALT_ARR_TIME_CUR': '', 'AIPORTIATA_PREV': '', 'REAL_DEP_TIME_PREF': '', 'PLAN_ARR_TIME_FL': '', 'ALT_ARR_TIME_FL': '', 'ARR_ROUTEID': '', 'DELAY_TIME': '', 'FLIGHT_STATE_CODE': 'PUBLISH', 'IMPACTED_ROUTEID': '', 'REAL_ARR_TIME_CUR': '', 'STATUS_PREV_FLT': '', 'premise': '1', 'IMPACTED_AIRPORT': '', 'INNER_ABN_RSN': '', 'ETA_CUR': '', 'DEP_ROUTEID': '', 'PLAN_DEP_TIME_CUR': '', 'ALT_DEP_TIME_CUR': '', 'DTL_STATUS': 'POK', 'OUT_ABN_STATUS': '', 'AIRPORTIATA_FL': '', 'ETD_CUR': '', 'OUTER_ABN_RSN': '', 'REAL_ARR_TIME_FL': '', 'IN_ABN_STATUS': '', 'REAL_DEP_TIME_CUR': '', 'PLAN_DEP_TIME_PREV': '', 'ALT_DEP_TIME_PREV': ''}, 'ROUTE_INFO': {'ROUTE_ID1': '616824585', 'premise': '1', 'ROUTE_ID2': '616824586', 'ROUTE_ID3': '616824587', 'ROUTE_ID4': '', 'ROUTE_ID5': '', 'ID': '616842338', 'BIZKEY': '20240318-3U3457-O-W/Z-202403180710'}, 'FLIGHT_SCHEDULE': {'premise': '1', 'FLIGHT_DATE': '2024-03-18', 'REAL_DATE': ''}, 'ROUTE_AIRLINE': {'ALT_LANDING': '', 'PLAN_TAKEOFF_2': '20240318 11:30:00', 'PLAN_TAKEOFF_3': '', 'REAL_TAKEOFF': '', 'REAL_LANDING_2': '', 'REAL_LANDING_3': '', 'premise': '1', 'PLAN_TAKEOFF': '20240318 07:10:00', 'ISALTERAIRPORT_2': '0', 'ISALTERAIRPORT_3': '0', 'PLAN_LANDING_2': '20240318 10:45:00', 'PLAN_LANDING_3': '20240318 13:05:00', 'REAL_LANDING': '', 'ROUTEORDER_2': '2', 'ROUTEORDER_3': '3', 'ISALTERAIRPORT': '0', 'STAY_TYPE': '', 'PLAN_LANDING': '', 'AIRPORTIATA_2': 'LZO', 'AIRPORTIATA_3': 'NNG', 'ROUTEORDER': '1', 'ALT_TAKEOFF_2': '', 'ALT_TAKEOFF_3': '', 'REGION_2': 'DMST', 'REGION_3': 'DMST', 'REGION_4': 'DMST', 'AIRPORTIATA': 'URC', 'ALT_TAKEOFF': '', 'REGION': 'DMST', 'ALT_LANDING_2': '', 'ALT_LANDING_3': '', 'REAL_TAKEOFF_2': '', 'REAL_TAKEOFF_3': ''}, 'SEAT_INFO': {'CRAFT': '', 'SEATNAME_2': '', 'SEATNAME_3': '', 'SEATNAME_4': '', 'SEATNAME_5': '', 'DRAGED_2': '', 'DRAGED_3': '', 'DRAGED_4': '', 'REAL_ARV_TIME': '', 'SEATORDER': '', 'OCCUPYTYPE': '', 'DRAGED_5': '', 'SEATNAME': '', 'PLAN_ARV_TIME_2': '', 'premise': '1', 'PLAN_ARV_TIME_3': '', 'REAL_DEP_TIME_2': '', 'PLAN_ARV_TIME_4': '', 'REAL_DEP_TIME_3': '', 'DRAGED': '', 'PLAN_ARV_TIME_5': '', 'REAL_DEP_TIME_4': '', 'REAL_DEP_TIME_5': '', 'PLAN_ARV_TIME': '', 'REAL_DEP_TIME': '', 'PLAN_DEP_TIME_2': '', 'PLAN_DEP_TIME_3': '', 'PLAN_DEP_TIME_4': '', 'PLAN_DEP_TIME_5': '', 'PLAN_DEP_TIME': '', 'CRAFT_2': '', 'CRAFT_3': '', 'CRAFT_4': '', 'CRAFT_5': '', 'REAL_ARV_TIME_2': '', 'SEATORDER_2': '', 'OCCUPYTYPE_2': '', 'REAL_ARV_TIME_3': '', 'SEATORDER_3': '', 'OCCUPYTYPE_3': '', 'REAL_ARV_TIME_4': '', 'SEATORDER_4': '', 'OCCUPYTYPE_4': '', 'REAL_ARV_TIME_5': '', 'SEATORDER_5': '', 'OCCUPYTYPE_5': ''}, 'SHARED_FLIGHT': {'Share_Flight_NO': '9138,5139', 'premise': '1', 'BIZKEY': '', 'AIRLINE_NAME': 'CZ,MF', 'AIRLINE_ID': '57,73'}, 'LOADINGINFO': {'premise': '1', 'Passenger_Num': '', 'Mail_Ttl_Weight': '', 'Luggage_Ttl_Weight': '', 'Package_Ttl_Weight': '', 'Package_Method': '', 'Luggage_Num': '', 'Package_Num': '', 'Mail_Num': ''}, 'SPECIAL_PSNGR_TAG': {'premise': '1', 'DISBL_AMT': '', 'HASVIP': '0', 'HAS_DISBL': '', 'VIP_AMT': ''}, 'AIRLINE_INFO': {'AIRLINE_NAME': '3U', 'AIRLINE_ID': '51', 'premise': '1'}, 'DISPATCH_INFO': {'PLAN_START_TIME': '', 'ALT_START_TIME': '', 'premise': '1', 'ACRSL_ID': '', 'ACRSL_NAME': '', 'REAL_END_TIME': '', 'DISPATCH_UNIQ_ID': '', 'PROC_STAGE': '', 'REGION_ID': 'DMST', 'PLAN_END_TIME': '', 'ALT_END_TIME': '', 'BUILDING_INFO': 'T3', 'REAL_START_TIME': '', 'DISPATCH_TYPE': ''}, 'FLIGHT_TASK': {'TASK_TYPE': 'W/Z', 'premise': '1'}, 'BUILDING_INFO': {'premise': '1', 'DMST_BUILDING': 'T3', 'GATE_BYAUTO': '', 'INTER_BUILDING': '', 'GATE_NAME': '', 'GATE_ID': ''}, 'ACDM_MSG_BASIC': {'premise': '1', 'SNDR': 'FIMS', 'SUBTYPE': 'MODIFY', 'TYPE': 'DYNFLIGHT', 'RCVR': '', 'SENDTIME': '20240318 07:09:28', 'SEQN': '1710716968612'}, 'FLIGHT_INFO': {'Flight_NO': '3U3457', 'premise': '1', 'DEP_FLIGHT_ID': '15151687', 'ID': '15151687', 'IS_ARR_FLIGHT': '0', 'BIZKEY': '20240318-3U3457-O-W/Z-202403180710', 'ARR_FLIGHT_ID': ''}, 'PEOPLE_INFO': {'premise': '1', 'P_ID': '', 'P_NAME': '', 'P_JOBNUMBER': '', 'P_TEAMID': '', 'P_DEPTID': ''}, 'AIRLINE_CRAFT': {'CRAFT_NO': 'B328M', 'premise': '1', 'CRAFTMODEL': 'A20N', 'AIRLINE_NAME': '3U', 'ENGINE_NO': '', 'ENGINE_TYPE': ''}}
+# lisp.initialize()
 
-for i in range(100000):
-    data["i"] = i
-    x = lisp.test_interface(data, block=False)
+# lisp.benchmark()
 
-print(time.time() - stime)
+# lisp.finalize()
 
-lisp.finalize()
